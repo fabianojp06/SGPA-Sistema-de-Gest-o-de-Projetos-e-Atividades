@@ -1,0 +1,273 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum ProjectStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  ARCHIVED
+  CANCELLED
+}
+
+enum ActivityStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  CANCELLED
+}
+
+enum WinStatus {
+  TODO
+  IN_PROGRESS
+  DONE
+  BLOCKED
+  CANCELLED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum RiskStatus {
+  OPEN
+  MITIGATING
+  RESOLVED
+}
+
+enum MeetingType {
+  DAILY
+  WEEKLY
+  BIWEEKLY
+  MONTHLY
+  ONE_ON_ONE
+}
+
+enum UserRole {
+  admin
+  director
+  coordinator
+  technician
+}
+
+model User {
+  id        String    @id @default(cuid())
+  clerkId   String    @unique
+  name      String
+  email     String    @unique
+  role      UserRole  @default(technician)
+  area      String?
+  avatarUrl String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  projectMemberships ProjectMember[]
+  assignedActivities Activity[]       @relation("AssignedActivities")
+  wins               Win[]
+  risks              Risk[]
+  helpRequests       HelpRequest[]
+  auditLogs          AuditLog[]
+  deadlineChanges    DeadlineChange[]
+}
+
+model Project {
+  id          String        @id @default(cuid())
+  code        String        @unique
+  name        String
+  description String?
+  area        String
+  status      ProjectStatus @default(ACTIVE)
+  startDate   DateTime
+  endDate     DateTime
+  progress    Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  deletedAt   DateTime?
+
+  members    ProjectMember[]
+  phases     ProjectPhase[]
+  activities Activity[]
+  wins       Win[]
+  risks      Risk[]
+}
+
+model ProjectMember {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+  role      String @default("member")
+
+  project Project @relation(fields: [projectId], references: [id])
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([projectId, userId])
+}
+
+model ProjectPhase {
+  id        String   @id @default(cuid())
+  projectId String
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  project    Project    @relation(fields: [projectId], references: [id])
+  activities Activity[]
+}
+
+model Activity {
+  id              String         @id @default(cuid())
+  projectId       String
+  phaseId         String?
+  parentId        String?
+  title           String
+  description     String?
+  status          ActivityStatus @default(TODO)
+  priority        String         @default("medium")
+  progress        Int            @default(0)
+  assignedToId    String?
+  dueDate         DateTime
+  completedAt     DateTime?
+  predecessorId   String?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  deletedAt       DateTime?
+
+  project         Project           @relation(fields: [projectId], references: [id])
+  phase           ProjectPhase?     @relation(fields: [phaseId], references: [id])
+  assignedTo      User?             @relation("AssignedActivities", fields: [assignedToId], references: [id])
+  parent          Activity?         @relation("SubActivities", fields: [parentId], references: [id])
+  children        Activity[]        @relation("SubActivities")
+  deadlineChanges DeadlineChange[]
+  comments        ActivityComment[]
+  attachments     Attachment[]
+}
+
+model Win {
+  id          String    @id @default(cuid())
+  userId      String
+  projectId   String?
+  weekNumber  Int
+  year        Int
+  title       String
+  status      WinStatus @default(TODO)
+  supportName String?
+  dueDate     DateTime
+  repeatCount Int       @default(1)
+  escalated   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  user    User     @relation(fields: [userId], references: [id])
+  project Project? @relation(fields: [projectId], references: [id])
+
+  @@index([userId, weekNumber, year])
+}
+
+model Risk {
+  id          String     @id @default(cuid())
+  projectId   String?
+  userId      String
+  weekNumber  Int
+  year        Int
+  title       String
+  description String
+  level       RiskLevel
+  category    String     @default("general")
+  status      RiskStatus @default(OPEN)
+  ownerId     String?
+  dueDate     DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  project Project? @relation(fields: [projectId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+}
+
+model HelpRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  weekNumber  Int
+  year        Int
+  description String
+  targetName  String
+  dueDate     DateTime?
+  resolved    Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model ActivityComment {
+  id         String   @id @default(cuid())
+  activityId String
+  userId     String
+  content    String
+  createdAt  DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  activityId String
+  name       String
+  url        String
+  size       Int
+  createdAt  DateTime @default(now())
+
+  activity Activity @relation(fields: [activityId], references: [id])
+}
+
+model DeadlineChange {
+  id          String   @id @default(cuid())
+  activityId  String
+  changedById String
+  oldDate     DateTime
+  newDate     DateTime
+  reason      String
+  createdAt   DateTime @default(now())
+
+  activity  Activity @relation(fields: [activityId], references: [id])
+  changedBy User     @relation(fields: [changedById], references: [id])
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String
+  before    Json?
+  after     Json?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model Meeting {
+  id         String      @id @default(cuid())
+  type       MeetingType
+  weekNumber Int
+  year       Int
+  date       DateTime
+  agenda     Json?
+  minutes    String?
+  decisions  Json?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
