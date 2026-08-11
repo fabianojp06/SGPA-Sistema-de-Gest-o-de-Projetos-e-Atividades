@@ -7,6 +7,32 @@ import { logAudit } from "@/actions/audit";
 import { getCurrentWeek } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
+function getPreviousWeek(week: number, year: number) {
+  return week > 1 ? { week: week - 1, year } : { week: 52, year: year - 1 };
+}
+
+export async function getMyWinsThisWeek() {
+  const user = await requireDbUser();
+  const { week, year } = getCurrentWeek();
+
+  return prisma.win.findMany({
+    where: { userId: user.id, weekNumber: week, year, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+// US-037: retrospectiva automática da semana anterior ao abrir o card.
+export async function getMyWinsLastWeek() {
+  const user = await requireDbUser();
+  const current = getCurrentWeek();
+  const { week, year } = getPreviousWeek(current.week, current.year);
+
+  return prisma.win.findMany({
+    where: { userId: user.id, weekNumber: week, year, deletedAt: null },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
 const winSchema = z.object({
   title: z.string().min(1, "Título obrigatório"),
   projectId: z.string().optional(),
