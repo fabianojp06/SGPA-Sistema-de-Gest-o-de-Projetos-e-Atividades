@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireDbUser } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
+import { toActionError } from "@/lib/action-error";
 import { getCurrentWeek } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
@@ -65,8 +66,11 @@ export async function createWin(input: z.infer<typeof winSchema>) {
 
     revalidatePath("/dashboard/wins");
     return { success: true as const, win };
-  } catch {
-    return { success: false as const, error: "Não foi possível criar o WIN" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível criar o WIN", "createWin"),
+    };
   }
 }
 
@@ -94,7 +98,10 @@ export async function updateWin(input: z.infer<typeof updateWinSchema>) {
 
     revalidatePath("/dashboard/wins");
     return { success: true as const, win };
-  } catch {
-    return { success: false as const, error: "Não foi possível atualizar o WIN" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível atualizar o WIN", "updateWin"),
+    };
   }
 }

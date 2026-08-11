@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
+import { toActionError } from "@/lib/action-error";
 import { revalidatePath } from "next/cache";
 
 const projectSchema = z.object({
@@ -46,8 +47,11 @@ export async function createProject(input: z.infer<typeof projectSchema>) {
 
     revalidatePath("/dashboard/projetos");
     return { success: true as const, project };
-  } catch {
-    return { success: false as const, error: "Não foi possível criar o projeto" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível criar o projeto", "createProject"),
+    };
   }
 }
 
@@ -77,7 +81,10 @@ export async function updateProject(input: z.infer<typeof updateProjectSchema>) 
     revalidatePath("/dashboard/projetos");
     revalidatePath(`/dashboard/projetos/${id}`);
     return { success: true as const, project };
-  } catch {
-    return { success: false as const, error: "Não foi possível atualizar o projeto" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível atualizar o projeto", "updateProject"),
+    };
   }
 }

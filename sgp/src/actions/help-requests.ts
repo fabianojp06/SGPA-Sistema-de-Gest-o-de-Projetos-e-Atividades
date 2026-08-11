@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireDbUser } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
+import { toActionError } from "@/lib/action-error";
 import { getCurrentWeek } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
@@ -46,8 +47,15 @@ export async function createHelpRequest(input: z.infer<typeof helpRequestSchema>
 
     revalidatePath("/dashboard/wins");
     return { success: true as const, helpRequest };
-  } catch {
-    return { success: false as const, error: "Não foi possível registrar o pedido de ajuda" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(
+        error,
+        "Não foi possível registrar o pedido de ajuda",
+        "createHelpRequest",
+      ),
+    };
   }
 }
 
@@ -71,7 +79,14 @@ export async function resolveHelpRequest(id: string) {
 
     revalidatePath("/dashboard/wins");
     return { success: true as const, helpRequest };
-  } catch {
-    return { success: false as const, error: "Não foi possível atualizar o pedido de ajuda" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(
+        error,
+        "Não foi possível atualizar o pedido de ajuda",
+        "resolveHelpRequest",
+      ),
+    };
   }
 }

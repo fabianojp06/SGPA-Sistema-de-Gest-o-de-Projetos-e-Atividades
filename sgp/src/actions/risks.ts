@@ -4,6 +4,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireDbUser } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
+import { toActionError } from "@/lib/action-error";
 import { getCurrentWeek } from "@/lib/utils";
 import { revalidatePath } from "next/cache";
 
@@ -50,7 +51,10 @@ export async function createRisk(input: z.infer<typeof riskSchema>) {
 
     revalidatePath("/dashboard/wins");
     return { success: true as const, risk };
-  } catch {
-    return { success: false as const, error: "Não foi possível registrar o risco" };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível registrar o risco", "createRisk"),
+    };
   }
 }
