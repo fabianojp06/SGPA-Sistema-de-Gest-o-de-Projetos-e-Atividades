@@ -16,20 +16,28 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { CloseProjectDialog } from "@/components/projects/close-project-dialog";
 
+// COMPLETED/ARCHIVED/CANCELLED exigem justificativa (US-005) — usar o botão
+// "Encerrar projeto", não este formulário.
 const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Ativo" },
   { value: "PAUSED", label: "Pausado" },
-  { value: "COMPLETED", label: "Concluído" },
-  { value: "ARCHIVED", label: "Arquivado" },
-  { value: "CANCELLED", label: "Cancelado" },
 ] as const;
 
 function toDateInput(date: Date) {
   return new Date(date).toISOString().slice(0, 10);
 }
 
+const TERMINAL_STATUS_LABEL: Record<string, string> = {
+  COMPLETED: "Concluído",
+  ARCHIVED: "Arquivado",
+  CANCELLED: "Cancelado",
+};
+
 export function EditProjectForm({ project }: { project: Project }) {
+  const isClosed = project.status in TERMINAL_STATUS_LABEL;
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({
     name: project.name,
@@ -69,8 +77,9 @@ export function EditProjectForm({ project }: { project: Project }) {
 
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Editar projeto</CardTitle>
+        {!isClosed && <CloseProjectDialog projectId={project.id} />}
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -125,21 +134,27 @@ export function EditProjectForm({ project }: { project: Project }) {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Status</Label>
-              <Select
-                value={form.status}
-                onValueChange={(v) => set("status", v as typeof form.status)}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {isClosed ? (
+                <Badge variant="outline" className="w-fit">
+                  {TERMINAL_STATUS_LABEL[project.status]}
+                </Badge>
+              ) : (
+                <Select
+                  value={form.status}
+                  onValueChange={(v) => set("status", v as typeof form.status)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
           </div>
           <div>

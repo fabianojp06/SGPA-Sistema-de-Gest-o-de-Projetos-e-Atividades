@@ -2,7 +2,11 @@ import { notFound } from "next/navigation";
 import { getProject } from "@/actions/projects";
 import { getProjectActivities } from "@/actions/activities";
 import { getActiveUsers } from "@/actions/users";
+import { getProjectMembers } from "@/actions/team";
+import { getProjectPhases } from "@/actions/phases";
 import { EditProjectForm } from "@/components/projects/edit-project-form";
+import { TeamCard } from "@/components/projects/team-card";
+import { PhasesCard } from "@/components/projects/phases-card";
 import { ActivityFormDialog } from "@/components/activities/activity-form-dialog";
 import { ActivityRow } from "@/components/activities/activity-row";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,9 +28,11 @@ export default async function ProjetoDetailPage({ params }: ProjetoPageProps) {
 
   if (!project) notFound();
 
-  const [activities, users] = await Promise.all([
+  const [activities, users, members, phases] = await Promise.all([
     getProjectActivities(id),
     getActiveUsers(),
+    getProjectMembers(id),
+    getProjectPhases(id),
   ]);
 
   return (
@@ -40,10 +46,15 @@ export default async function ProjetoDetailPage({ params }: ProjetoPageProps) {
 
       <EditProjectForm project={project} />
 
+      <div className="grid gap-6 md:grid-cols-2">
+        <TeamCard projectId={id} members={members} users={users} />
+        <PhasesCard projectId={id} phases={phases} />
+      </div>
+
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Atividades ({activities.length})</CardTitle>
-          <ActivityFormDialog projectId={id} users={users} />
+          <ActivityFormDialog projectId={id} users={users} activities={activities} />
         </CardHeader>
         <CardContent>
           {activities.length === 0 ? (

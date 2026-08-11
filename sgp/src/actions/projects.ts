@@ -110,3 +110,38 @@ export async function updateProject(input: z.infer<typeof updateProjectSchema>) 
     };
   }
 }
+
+const closeProjectSchema = z.object({
+  id: z.string(),
+  status: z.enum(["COMPLETED", "ARCHIVED", "CANCELLED"]),
+  reason: z.string().min(1, "Justificativa obrigatória"),
+});
+
+// US-005: encerrar/arquivar projeto com justificativa obrigatória.
+export async function closeProject(input: z.infer<typeof closeProjectSchema>) {
+  try {
+    const user = await requireRole(...PROJECT_MANAGER_ROLES);
+    const { id, status, reason } = closeProjectSchema.parse(input);
+
+    const before = await prisma.project.findUniqueOrThrow({ where: { id } });
+    const project = await prisma.project.update({ where: { id }, data: { status } });
+
+    await logAudit({
+      userId: user.id,
+      action: "close",
+      entity: "Project",
+      entityId: project.id,
+      before: { status: before.status },
+      after: { status: project.status, reason },
+    });
+
+    revalidatePath("/dashboard/projetos");
+    revalidatePath(`/dashboard/projetos/${id}`);
+    return { success: true as const, project };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível encerrar o projeto", "closeProject"),
+    };
+  }
+}

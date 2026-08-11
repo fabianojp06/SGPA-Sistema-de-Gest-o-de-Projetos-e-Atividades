@@ -79,6 +79,7 @@ const activitySchema = z.object({
   description: z.string().optional(),
   assignedToId: z.string().optional(),
   dueDate: z.coerce.date(),
+  predecessorId: z.string().optional(), // US-011
 });
 
 export async function createActivity(input: z.infer<typeof activitySchema>) {
@@ -175,6 +176,18 @@ export async function updateActivityStatus(input: z.infer<typeof updateStatusSch
 
     if (status === "DONE" && before.progress !== 100) {
       throw new Error("Atividade só pode ser concluída com progresso em 100%");
+    }
+
+    // US-018/RN-18: bloqueia início/conclusão se a predecessora não foi iniciada.
+    if (before.predecessorId && status !== "TODO" && status !== "CANCELLED") {
+      const predecessor = await prisma.activity.findUnique({
+        where: { id: before.predecessorId },
+      });
+      if (predecessor && predecessor.status === "TODO") {
+        throw new Error(
+          `Atividade predecessora ("${predecessor.title}") ainda não foi iniciada`,
+        );
+      }
     }
 
     const activity = await prisma.$transaction(async (tx) => {

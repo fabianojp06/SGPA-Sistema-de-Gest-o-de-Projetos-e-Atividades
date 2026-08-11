@@ -26,18 +26,21 @@ import {
 } from "@/components/ui/select";
 
 const UNASSIGNED = "__unassigned__";
+const NO_PREDECESSOR = "__none__";
 
 interface ActivityFormDialogProps {
   projectId: string;
   users: { id: string; name: string }[];
+  activities: { id: string; title: string }[];
 }
 
-export function ActivityFormDialog({ projectId, users }: ActivityFormDialogProps) {
+export function ActivityFormDialog({ projectId, users, activities }: ActivityFormDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [assignedToId, setAssignedToId] = useState(UNASSIGNED);
+  const [predecessorId, setPredecessorId] = useState(NO_PREDECESSOR);
   const [dueDate, setDueDate] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -49,6 +52,7 @@ export function ActivityFormDialog({ projectId, users }: ActivityFormDialogProps
       title,
       description: description || undefined,
       assignedToId: assignedToId === UNASSIGNED ? undefined : assignedToId,
+      predecessorId: predecessorId === NO_PREDECESSOR ? undefined : predecessorId,
       dueDate: new Date(dueDate),
     });
 
@@ -60,6 +64,7 @@ export function ActivityFormDialog({ projectId, users }: ActivityFormDialogProps
       setTitle("");
       setDescription("");
       setAssignedToId(UNASSIGNED);
+      setPredecessorId(NO_PREDECESSOR);
       setDueDate("");
     } else {
       toast.error(result.error);
@@ -103,6 +108,22 @@ export function ActivityFormDialog({ projectId, users }: ActivityFormDialogProps
                 {users.map((u) => (
                   <SelectItem key={u.id} value={u.id}>
                     {u.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Predecessora (opcional)</Label>
+            <Select value={predecessorId} onValueChange={(v) => setPredecessorId(v as string)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sem dependência" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PREDECESSOR}>Sem dependência</SelectItem>
+                {activities.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.title}
                   </SelectItem>
                 ))}
               </SelectContent>
