@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
 import { UPCOMING_DEADLINE_WINDOW_DAYS } from "@/lib/deadlines";
+import { ActivityDetailsDialog } from "@/components/activities/activity-details-dialog";
 
 const OPEN_STATUSES = new Set(["TODO", "IN_PROGRESS", "BLOCKED"]);
 
@@ -118,6 +119,9 @@ export function ActivityRow({ activity }: ActivityRowProps) {
             ))}
           </SelectContent>
         </Select>
+      </TableCell>
+      <TableCell>
+        <ActivityDetailsDialog activity={activity} />
       </TableCell>
     </TableRow>
   );

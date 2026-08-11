@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getProjects } from "@/actions/projects";
 import { ProjectFormDialog } from "@/components/projects/project-form-dialog";
+import { CloneProjectDialog } from "@/components/projects/clone-project-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -54,6 +55,7 @@ export default async function ProjetosPage() {
                   <TableHead>Status</TableHead>
                   <TableHead>Progresso</TableHead>
                   <TableHead>Prazo final</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -76,6 +78,9 @@ export default async function ProjetosPage() {
                       <Progress value={project.progress} className="w-24" />
                     </TableCell>
                     <TableCell className="font-mono">{formatDate(project.endDate)}</TableCell>
+                    <TableCell>
+                      <CloneProjectDialog sourceId={project.id} sourceName={project.name} />
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>

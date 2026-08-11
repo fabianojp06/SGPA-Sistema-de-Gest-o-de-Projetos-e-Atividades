@@ -145,3 +145,60 @@ export async function closeProject(input: z.infer<typeof closeProjectSchema>) {
     };
   }
 }
+
+const cloneProjectSchema = z.object({
+  sourceId: z.string(),
+  code: z.string().min(1, "Código obrigatório"),
+  startDate: z.coerce.date(),
+  endDate: z.coerce.date(),
+});
+
+// US-006: clonar projeto existente como template. Copia dados básicos e
+// fases; não copia atividades/equipe (são específicas da instância).
+export async function cloneProject(input: z.infer<typeof cloneProjectSchema>) {
+  try {
+    const user = await requireRole(...PROJECT_MANAGER_ROLES);
+    const { sourceId, code, startDate, endDate } = cloneProjectSchema.parse(input);
+
+    const source = await prisma.project.findUniqueOrThrow({
+      where: { id: sourceId },
+      include: { phases: true },
+    });
+
+    const project = await prisma.project.create({
+      data: {
+        code,
+        name: `${source.name} (cópia)`,
+        description: source.description,
+        area: source.area,
+        startDate,
+        endDate,
+        phases: {
+          create: source.phases.map((phase) => ({
+            name: phase.name,
+            startDate: phase.startDate,
+            endDate: phase.endDate,
+            order: phase.order,
+          })),
+        },
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "clone",
+      entity: "Project",
+      entityId: project.id,
+      before: { sourceId },
+      after: project,
+    });
+
+    revalidatePath("/dashboard/projetos");
+    return { success: true as const, project };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível clonar o projeto", "cloneProject"),
+    };
+  }
+}

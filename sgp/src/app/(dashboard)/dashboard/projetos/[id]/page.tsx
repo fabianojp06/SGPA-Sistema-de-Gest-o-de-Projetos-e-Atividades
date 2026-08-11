@@ -70,6 +70,7 @@ export default async function ProjetoDetailPage({ params }: ProjetoPageProps) {
                   <TableHead>Prazo</TableHead>
                   <TableHead>Progresso</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

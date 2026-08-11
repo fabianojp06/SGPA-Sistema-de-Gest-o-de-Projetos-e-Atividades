@@ -12,11 +12,12 @@ import { revalidatePath } from "next/cache";
 // RN-04: só gestor/admin altera prazo de atividade de outros.
 const ACTIVITY_MANAGER_ROLES = ["admin", "director", "coordinator"] as const;
 
-// RN-07: progresso do projeto = média do progresso das atividades filhas
-// (não deletadas). Deve rodar na mesma transação da mudança que o afeta.
+// RN-07: progresso do projeto = média do progresso das atividades de topo
+// (não deletadas, sem contar sub-atividades/checklist — US-013). Deve rodar
+// na mesma transação da mudança que o afeta.
 async function recalcProjectProgress(tx: Prisma.TransactionClient, projectId: string) {
   const activities = await tx.activity.findMany({
-    where: { projectId, deletedAt: null },
+    where: { projectId, deletedAt: null, parentId: null },
     select: { progress: true },
   });
 
@@ -66,10 +67,98 @@ export async function getUpcomingDeadlineActivities(
 export async function getProjectActivities(projectId: string) {
   await requireDbUser();
   return prisma.activity.findMany({
-    where: { projectId, deletedAt: null },
+    where: { projectId, deletedAt: null, parentId: null },
     include: { assignedTo: true },
     orderBy: { createdAt: "desc" },
   });
+}
+
+// US-013: sub-atividades (checklist hierárquico) de uma atividade-pai.
+export async function getSubActivities(parentId: string) {
+  await requireDbUser();
+  return prisma.activity.findMany({
+    where: { parentId, deletedAt: null },
+    orderBy: { createdAt: "asc" },
+  });
+}
+
+const subActivitySchema = z.object({
+  parentId: z.string(),
+  title: z.string().min(1, "Título obrigatório"),
+});
+
+// Item de checklist herda projeto e prazo da atividade-pai — é uma unidade
+// leve, não uma atividade completa por si.
+export async function createSubActivity(input: z.infer<typeof subActivitySchema>) {
+  try {
+    const user = await requireDbUser();
+    const { parentId, title } = subActivitySchema.parse(input);
+
+    const parent = await prisma.activity.findUniqueOrThrow({ where: { id: parentId } });
+    const subActivity = await prisma.activity.create({
+      data: {
+        projectId: parent.projectId,
+        parentId,
+        title,
+        dueDate: parent.dueDate,
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "create_subactivity",
+      entity: "Activity",
+      entityId: subActivity.id,
+      after: subActivity,
+    });
+
+    revalidatePath(`/dashboard/projetos/${parent.projectId}`);
+    return { success: true as const, subActivity };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível criar o item", "createSubActivity"),
+    };
+  }
+}
+
+const toggleSubActivitySchema = z.object({
+  id: z.string(),
+  done: z.boolean(),
+});
+
+export async function toggleSubActivity(input: z.infer<typeof toggleSubActivitySchema>) {
+  try {
+    const user = await requireDbUser();
+    const { id, done } = toggleSubActivitySchema.parse(input);
+
+    const before = await prisma.activity.findUniqueOrThrow({ where: { id } });
+    const subActivity = await prisma.activity.update({
+      where: { id },
+      data: {
+        progress: done ? 100 : 0,
+        status: done ? "DONE" : "TODO",
+        completedAt: done ? new Date() : null,
+      },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "update_subactivity",
+      entity: "Activity",
+      entityId: id,
+      before: { status: before.status, progress: before.progress },
+      after: { status: subActivity.status, progress: subActivity.progress },
+    });
+
+    revalidatePath(`/dashboard/projetos/${subActivity.projectId}`);
+    return { success: true as const, subActivity };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível atualizar o item", "toggleSubActivity"),
+    };
+  }
 }
 
 const activitySchema = z.object({
