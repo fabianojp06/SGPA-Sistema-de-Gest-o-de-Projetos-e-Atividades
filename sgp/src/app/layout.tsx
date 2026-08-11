@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SGPA — Sistema de Gestão de Projetos e Atividades",
+  title: "GiaFlow — Sistema de Gestão de Projetos e Atividades",
   description: "Gestão de projetos e atividades da equipe GIA/STI",
 };
 

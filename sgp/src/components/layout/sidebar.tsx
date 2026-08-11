@@ -61,7 +61,7 @@ export async function Sidebar() {
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-[var(--accent)]" />
         </span>
         <span className="text-lg font-semibold tracking-tight text-foreground">
-          SGPA
+          GiaFlow
         </span>
       </div>
 

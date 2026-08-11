@@ -22,8 +22,8 @@ async function notify(
       to,
       subject:
         kind === "overdue"
-          ? `[SGPA] Atividade atrasada: ${activityTitle}`
-          : `[SGPA] Prazo se aproximando: ${activityTitle}`,
+          ? `[GiaFlow] Atividade atrasada: ${activityTitle}`
+          : `[GiaFlow] Prazo se aproximando: ${activityTitle}`,
       react: DeadlineAlertEmail({
         activityTitle,
         projectName,
