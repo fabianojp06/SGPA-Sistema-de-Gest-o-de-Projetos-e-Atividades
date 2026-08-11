@@ -6,6 +6,7 @@ import { updateActivityProgress, updateActivityStatus } from "@/actions/activiti
 import type { Activity, User } from "@prisma/client";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -14,6 +15,20 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { formatDate } from "@/lib/utils";
+import { UPCOMING_DEADLINE_WINDOW_DAYS } from "@/lib/deadlines";
+
+const OPEN_STATUSES = new Set(["TODO", "IN_PROGRESS", "BLOCKED"]);
+
+// US-014/US-015: sinalização visual de atraso e prazo próximo (RN-08).
+function deadlineFlag(dueDate: Date, status: string) {
+  if (!OPEN_STATUSES.has(status)) return null;
+  const now = Date.now();
+  const due = new Date(dueDate).getTime();
+  if (due < now) return { label: "Atrasada", variant: "destructive" as const };
+  const windowMs = UPCOMING_DEADLINE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  if (due - now <= windowMs) return { label: "Prazo próximo", variant: "outline" as const };
+  return null;
+}
 
 const STATUS_OPTIONS = [
   { value: "TODO", label: "A Fazer" },
@@ -63,11 +78,18 @@ export function ActivityRow({ activity }: ActivityRowProps) {
     }
   }
 
+  const flag = deadlineFlag(activity.dueDate, status);
+
   return (
     <TableRow>
       <TableCell>{activity.title}</TableCell>
       <TableCell>{activity.assignedTo?.name ?? "—"}</TableCell>
-      <TableCell className="font-mono">{formatDate(activity.dueDate)}</TableCell>
+      <TableCell className="font-mono">
+        <div className="flex items-center gap-2">
+          {formatDate(activity.dueDate)}
+          {flag && <Badge variant={flag.variant}>{flag.label}</Badge>}
+        </div>
+      </TableCell>
       <TableCell>
         <div className="flex items-center gap-1.5">
           <Input

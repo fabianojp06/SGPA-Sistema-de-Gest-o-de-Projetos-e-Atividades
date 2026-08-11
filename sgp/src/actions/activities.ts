@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireDbUser, requireRole } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
+import { UPCOMING_DEADLINE_WINDOW_DAYS } from "@/lib/deadlines";
 import { revalidatePath } from "next/cache";
 
 // RN-04: só gestor/admin altera prazo de atividade de outros.
@@ -25,6 +26,41 @@ async function recalcProjectProgress(tx: Prisma.TransactionClient, projectId: st
       : Math.round(activities.reduce((sum, a) => sum + a.progress, 0) / activities.length);
 
   await tx.project.update({ where: { id: projectId }, data: { progress } });
+}
+
+const OPEN_STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED"] as const;
+
+// US-014: atividades com prazo vencido e status ≠ Concluída/Cancelada.
+export async function getOverdueActivities() {
+  await requireDbUser();
+  return prisma.activity.findMany({
+    where: {
+      status: { in: [...OPEN_STATUSES] },
+      dueDate: { lt: new Date() },
+      deletedAt: null,
+    },
+    include: { assignedTo: true, project: true },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+// US-015: atividades com prazo dentro da janela configurável (RN-08).
+export async function getUpcomingDeadlineActivities(
+  windowDays: number = UPCOMING_DEADLINE_WINDOW_DAYS,
+) {
+  await requireDbUser();
+  const now = new Date();
+  const limit = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+
+  return prisma.activity.findMany({
+    where: {
+      status: { in: [...OPEN_STATUSES] },
+      dueDate: { gte: now, lte: limit },
+      deletedAt: null,
+    },
+    include: { assignedTo: true, project: true },
+    orderBy: { dueDate: "asc" },
+  });
 }
 
 export async function getProjectActivities(projectId: string) {

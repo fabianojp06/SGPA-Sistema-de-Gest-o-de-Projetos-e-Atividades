@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/check-wins",
       "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/check-deadlines",
+      "schedule": "5 8 * * *"
     }
   ]
 }
