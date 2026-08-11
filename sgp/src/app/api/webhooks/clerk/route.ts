@@ -1,33 +1,13 @@
-import { headers } from "next/headers";
-import { Webhook } from "svix";
-import type { WebhookEvent } from "@clerk/nextjs/server";
+import { verifyWebhook } from "@clerk/nextjs/webhooks";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/prisma";
 
-export async function POST(req: Request) {
-  const secret = process.env.CLERK_WEBHOOK_SECRET;
-  if (!secret) {
-    return new Response("Webhook secret não configurado", { status: 500 });
-  }
-
-  const headerPayload = await headers();
-  const svixId = headerPayload.get("svix-id");
-  const svixTimestamp = headerPayload.get("svix-timestamp");
-  const svixSignature = headerPayload.get("svix-signature");
-
-  if (!svixId || !svixTimestamp || !svixSignature) {
-    return new Response("Cabeçalhos svix ausentes", { status: 400 });
-  }
-
-  const body = await req.text();
-  const webhook = new Webhook(secret);
-
-  let event: WebhookEvent;
+export async function POST(req: NextRequest) {
+  let event;
   try {
-    event = webhook.verify(body, {
-      "svix-id": svixId,
-      "svix-timestamp": svixTimestamp,
-      "svix-signature": svixSignature,
-    }) as WebhookEvent;
+    event = await verifyWebhook(req, {
+      signingSecret: process.env.CLERK_WEBHOOK_SECRET,
+    });
   } catch {
     return new Response("Assinatura inválida", { status: 400 });
   }
