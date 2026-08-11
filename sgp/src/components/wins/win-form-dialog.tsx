@@ -16,13 +16,27 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-export function WinFormDialog() {
+const NO_PROJECT = "__none__";
+
+interface WinFormDialogProps {
+  projects: { id: string; code: string; name: string }[];
+}
+
+export function WinFormDialog({ projects }: WinFormDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [title, setTitle] = useState("");
   const [supportName, setSupportName] = useState("");
   const [dueDate, setDueDate] = useState("");
+  const [projectId, setProjectId] = useState(NO_PROJECT);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -32,6 +46,7 @@ export function WinFormDialog() {
       title,
       supportName: supportName || undefined,
       dueDate: new Date(dueDate),
+      projectId: projectId === NO_PROJECT ? undefined : projectId,
     });
 
     setLoading(false);
@@ -42,6 +57,7 @@ export function WinFormDialog() {
       setTitle("");
       setSupportName("");
       setDueDate("");
+      setProjectId(NO_PROJECT);
     } else {
       toast.error(result.error);
     }
@@ -76,6 +92,22 @@ export function WinFormDialog() {
               onChange={(e) => setSupportName(e.target.value)}
               placeholder="Quem está te apoiando nesta entrega"
             />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label>Projeto (opcional)</Label>
+            <Select value={projectId} onValueChange={(v) => setProjectId(v as string)}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Sem projeto vinculado" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_PROJECT}>Sem projeto vinculado</SelectItem>
+                {projects.map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.code} — {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="win-due">Prazo</Label>

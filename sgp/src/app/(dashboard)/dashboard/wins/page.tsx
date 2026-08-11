@@ -1,7 +1,9 @@
 import { getMyWinsThisWeek, getMyWinsLastWeek } from "@/actions/wins";
 import { getMyRisks } from "@/actions/risks";
 import { getMyHelpRequests } from "@/actions/help-requests";
+import { getProjects } from "@/actions/projects";
 import { WinFormDialog } from "@/components/wins/win-form-dialog";
+import { WinEditDialog } from "@/components/wins/win-edit-dialog";
 import { RiskFormDialog } from "@/components/wins/risk-form-dialog";
 import { HelpRequestFormDialog } from "@/components/wins/help-request-form-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -39,12 +41,15 @@ const RISK_LEVEL_LABEL: Record<string, string> = {
 };
 
 export default async function WinsPage() {
-  const [thisWeek, lastWeek, risks, helpRequests] = await Promise.all([
+  const [thisWeek, lastWeek, risks, helpRequests, projects] = await Promise.all([
     getMyWinsThisWeek(),
     getMyWinsLastWeek(),
     getMyRisks(),
     getMyHelpRequests(),
+    getProjects(),
   ]);
+
+  const projectLabel = new Map(projects.map((p) => [p.id, `${p.code} — ${p.name}`]));
 
   return (
     <div className="flex flex-col gap-6">
@@ -55,7 +60,7 @@ export default async function WinsPage() {
             Registre o que você entregou esta semana, riscos e pedidos de ajuda.
           </p>
         </div>
-        <WinFormDialog />
+        <WinFormDialog projects={projects} />
       </div>
 
       <Card>
@@ -73,8 +78,10 @@ export default async function WinsPage() {
                 <TableRow>
                   <TableHead>Título</TableHead>
                   <TableHead>Suporte</TableHead>
+                  <TableHead>Projeto</TableHead>
                   <TableHead>Prazo</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="w-10"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -82,9 +89,15 @@ export default async function WinsPage() {
                   <TableRow key={win.id}>
                     <TableCell>{win.title}</TableCell>
                     <TableCell>{win.supportName ?? "—"}</TableCell>
+                    <TableCell>
+                      {win.projectId ? projectLabel.get(win.projectId) ?? "—" : "—"}
+                    </TableCell>
                     <TableCell className="font-mono">{formatDate(win.dueDate)}</TableCell>
                     <TableCell>
                       <Badge variant="outline">{WIN_STATUS_LABEL[win.status]}</Badge>
+                    </TableCell>
+                    <TableCell>
+                      <WinEditDialog win={win} projects={projects} />
                     </TableCell>
                   </TableRow>
                 ))}
