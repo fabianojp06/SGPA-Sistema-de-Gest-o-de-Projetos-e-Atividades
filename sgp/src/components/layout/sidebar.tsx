@@ -8,10 +8,14 @@ import {
   FileText,
   ScrollText,
   ShieldAlert,
+  History,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { getCurrentWeek } from "@/lib/utils";
 import { prisma } from "@/lib/prisma";
+import { getCurrentDbUser } from "@/lib/auth";
+
+const AUDIT_VIEW_ROLES = ["admin", "director"];
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -37,6 +41,8 @@ const statusColors: Record<string, string> = {
 export async function Sidebar() {
   const { week, year } = getCurrentWeek();
   const monthLabel = new Date().toLocaleDateString("pt-BR", { month: "short" });
+  const currentUser = await getCurrentDbUser().catch(() => null);
+  const canViewAudit = !!currentUser && AUDIT_VIEW_ROLES.includes(currentUser.role);
 
   const activeProjects = await prisma.project
     .findMany({
@@ -94,6 +100,16 @@ export async function Sidebar() {
           <ShieldAlert className="h-4 w-4" />
           Riscos
         </Link>
+
+        {canViewAudit && (
+          <Link
+            href="/dashboard/auditoria"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <History className="h-4 w-4" />
+            Auditoria
+          </Link>
+        )}
 
         {activeProjects.length > 0 && (
           <>

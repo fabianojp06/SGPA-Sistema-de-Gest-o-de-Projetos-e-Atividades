@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/auth";
+import { requireRole, requireDbUser } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
 import { revalidatePath } from "next/cache";
@@ -19,15 +19,37 @@ const projectSchema = z.object({
 // Matriz de acesso (doc mestre 4.1): admin, director e coordinator criam/editam projeto.
 const PROJECT_MANAGER_ROLES = ["admin", "director", "coordinator"] as const;
 
+// Matriz de acesso 4.1 — "Ver todos os projetos": admin/director veem tudo;
+// coordinator/technician só os projetos em que estão alocados (ProjectMember).
+const GLOBAL_VIEW_ROLES = ["admin", "director"] as const;
+
+// US-020/021/022.
 export async function getProjects() {
+  const user = await requireDbUser();
+
   return prisma.project.findMany({
-    where: { deletedAt: null },
+    where: {
+      deletedAt: null,
+      ...(GLOBAL_VIEW_ROLES.includes(user.role as (typeof GLOBAL_VIEW_ROLES)[number])
+        ? {}
+        : { members: { some: { userId: user.id } } }),
+    },
     orderBy: { createdAt: "desc" },
   });
 }
 
 export async function getProject(id: string) {
-  return prisma.project.findUnique({ where: { id, deletedAt: null } });
+  const user = await requireDbUser();
+
+  return prisma.project.findUnique({
+    where: {
+      id,
+      deletedAt: null,
+      ...(GLOBAL_VIEW_ROLES.includes(user.role as (typeof GLOBAL_VIEW_ROLES)[number])
+        ? {}
+        : { members: { some: { userId: user.id } } }),
+    },
+  });
 }
 
 export async function createProject(input: z.infer<typeof projectSchema>) {
