@@ -2,7 +2,7 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireDbUser } from "@/lib/auth";
+import { requireDbUser, requireRole } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
 import { getCurrentWeek } from "@/lib/utils";
@@ -37,6 +37,20 @@ export async function getMyWinsLastWeek() {
 // admin/director/coordinator podem editar/excluir WIN de qualquer um (matriz
 // de acesso doc mestre 4.1); technician só o próprio.
 const WIN_MANAGER_ROLES = ["admin", "director", "coordinator"] as const;
+
+// US-042: visão consolidada de todos os Cards WIN da equipe na semana —
+// restrita a gestor/diretor/admin (matriz de acesso doc mestre 4.1,
+// "Ver WINs de toda equipe").
+export async function getTeamWinsThisWeek() {
+  await requireRole(...WIN_MANAGER_ROLES);
+  const { week, year } = getCurrentWeek();
+
+  return prisma.win.findMany({
+    where: { weekNumber: week, year, deletedAt: null },
+    include: { user: true, project: true },
+    orderBy: [{ user: { name: "asc" } }, { createdAt: "desc" }],
+  });
+}
 
 async function requireWinOwnerOrManager(winId: string) {
   const user = await requireDbUser();

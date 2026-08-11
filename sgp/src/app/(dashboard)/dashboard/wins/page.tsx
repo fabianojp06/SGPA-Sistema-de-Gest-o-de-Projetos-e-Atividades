@@ -1,11 +1,13 @@
-import { getMyWinsThisWeek, getMyWinsLastWeek } from "@/actions/wins";
+import { getMyWinsThisWeek, getMyWinsLastWeek, getTeamWinsThisWeek } from "@/actions/wins";
 import { getMyRisks } from "@/actions/risks";
 import { getMyHelpRequests } from "@/actions/help-requests";
 import { getProjects } from "@/actions/projects";
+import { getCurrentDbUser } from "@/lib/auth";
 import { WinFormDialog } from "@/components/wins/win-form-dialog";
 import { WinEditDialog } from "@/components/wins/win-edit-dialog";
 import { RiskFormDialog } from "@/components/wins/risk-form-dialog";
 import { HelpRequestFormDialog } from "@/components/wins/help-request-form-dialog";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -40,13 +42,19 @@ const RISK_LEVEL_LABEL: Record<string, string> = {
   CRITICAL: "Crítico",
 };
 
+const TEAM_VIEW_ROLES = ["admin", "director", "coordinator"];
+
 export default async function WinsPage() {
-  const [thisWeek, lastWeek, risks, helpRequests, projects] = await Promise.all([
+  const currentUser = await getCurrentDbUser();
+  const canViewTeam = !!currentUser && TEAM_VIEW_ROLES.includes(currentUser.role);
+
+  const [thisWeek, lastWeek, risks, helpRequests, projects, teamWins] = await Promise.all([
     getMyWinsThisWeek(),
     getMyWinsLastWeek(),
     getMyRisks(),
     getMyHelpRequests(),
     getProjects(),
+    canViewTeam ? getTeamWinsThisWeek() : Promise.resolve([]),
   ]);
 
   const projectLabel = new Map(projects.map((p) => [p.id, `${p.code} — ${p.name}`]));
@@ -208,6 +216,56 @@ export default async function WinsPage() {
           )}
         </CardContent>
       </Card>
+
+      {canViewTeam && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Card WIN da equipe — semana atual ({teamWins.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {teamWins.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nenhum WIN registrado pela equipe esta semana.
+              </p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Colaborador</TableHead>
+                    <TableHead>Título</TableHead>
+                    <TableHead>Projeto</TableHead>
+                    <TableHead>Prazo</TableHead>
+                    <TableHead>Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {teamWins.map((win) => (
+                    <TableRow key={win.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Avatar size="sm">
+                            <AvatarImage src={win.user.avatarUrl ?? undefined} />
+                            <AvatarFallback>{win.user.name.slice(0, 2)}</AvatarFallback>
+                          </Avatar>
+                          {win.user.name}
+                        </div>
+                      </TableCell>
+                      <TableCell>{win.title}</TableCell>
+                      <TableCell>
+                        {win.project ? `${win.project.code} — ${win.project.name}` : "—"}
+                      </TableCell>
+                      <TableCell className="font-mono">{formatDate(win.dueDate)}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{WIN_STATUS_LABEL[win.status]}</Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
