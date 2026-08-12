@@ -138,6 +138,7 @@ model Activity {
   priority        String         @default("medium")
   progress        Int            @default(0)
   assignedToId    String?
+  startDate       DateTime
   dueDate         DateTime
   completedAt     DateTime?
   predecessorId   String?

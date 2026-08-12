@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { getProject } from "@/actions/projects";
 import { getProjectActivities } from "@/actions/activities";
 import { getActiveUsers } from "@/actions/users";
@@ -54,7 +55,15 @@ export default async function ProjetoDetailPage({ params }: ProjetoPageProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Atividades ({activities.length})</CardTitle>
-          <ActivityFormDialog projectId={id} users={users} activities={activities} />
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/dashboard/projetos/${id}/gantt`}
+              className="text-xs font-medium text-accent hover:underline"
+            >
+              Ver Gantt →
+            </Link>
+            <ActivityFormDialog projectId={id} users={users} activities={activities} />
+          </div>
         </CardHeader>
         <CardContent>
           {activities.length === 0 ? (

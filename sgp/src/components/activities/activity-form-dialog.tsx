@@ -41,6 +41,7 @@ export function ActivityFormDialog({ projectId, users, activities }: ActivityFor
   const [description, setDescription] = useState("");
   const [assignedToId, setAssignedToId] = useState(UNASSIGNED);
   const [predecessorId, setPredecessorId] = useState(NO_PREDECESSOR);
+  const [startDate, setStartDate] = useState("");
   const [dueDate, setDueDate] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
@@ -53,6 +54,7 @@ export function ActivityFormDialog({ projectId, users, activities }: ActivityFor
       description: description || undefined,
       assignedToId: assignedToId === UNASSIGNED ? undefined : assignedToId,
       predecessorId: predecessorId === NO_PREDECESSOR ? undefined : predecessorId,
+      startDate: new Date(startDate),
       dueDate: new Date(dueDate),
     });
 
@@ -65,6 +67,7 @@ export function ActivityFormDialog({ projectId, users, activities }: ActivityFor
       setDescription("");
       setAssignedToId(UNASSIGNED);
       setPredecessorId(NO_PREDECESSOR);
+      setStartDate("");
       setDueDate("");
     } else {
       toast.error(result.error);
@@ -128,6 +131,16 @@ export function ActivityFormDialog({ projectId, users, activities }: ActivityFor
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="activity-start">Data de início</Label>
+            <Input
+              id="activity-start"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              required
+            />
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="activity-due">Prazo</Label>

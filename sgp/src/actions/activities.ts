@@ -8,6 +8,7 @@ import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
 import { UPCOMING_DEADLINE_WINDOW_DAYS } from "@/lib/deadlines";
 import { type DashboardFilters, periodCutoff } from "@/lib/dashboard-filters";
+import { getProject } from "@/actions/projects";
 import { revalidatePath } from "next/cache";
 
 // US-030: monta o recorte adicional (AND) a partir dos filtros globais do
@@ -180,6 +181,50 @@ export async function getProjectActivities(projectId: string) {
   });
 }
 
+// US-027: dado para a Visão Gantt. RBAC idêntico a getProject() (projects.ts)
+// — reaproveita a própria action em vez de duplicar a checagem
+// GLOBAL_VIEW_ROLES/ProjectMember; se getProject() retornar null (fora do
+// escopo do usuário ou projeto inexistente/excluído), a Gantt não tem dado
+// nenhum pra mostrar. Sub-atividades (parentId != null, US-013) ficam de
+// fora — não têm início/fim próprios, herdam dueDate do pai (RN-07 já as
+// exclui do cálculo de progresso pelo mesmo motivo).
+export async function getProjectGanttData(projectId: string) {
+  await requireDbUser();
+  const project = await getProject(projectId);
+  if (!project) return null;
+
+  const activities = await prisma.activity.findMany({
+    where: { projectId, deletedAt: null, parentId: null },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      progress: true,
+      startDate: true,
+      dueDate: true,
+      predecessorId: true,
+      assignedTo: { select: { id: true, name: true } },
+    },
+    orderBy: { startDate: "asc" },
+  });
+
+  // Necessário pra saber, por atividade, se a predecessora dela já foi
+  // iniciada (RN-18) — mesma regra já aplicada em updateActivityStatus.
+  const statusByActivityId = new Map(activities.map((a) => [a.id, a.status]));
+
+  return {
+    project: { id: project.id, name: project.name, startDate: project.startDate, endDate: project.endDate },
+    activities: activities.map((activity) => ({
+      ...activity,
+      predecessorTitle: activity.predecessorId
+        ? (activities.find((a) => a.id === activity.predecessorId)?.title ?? null)
+        : null,
+      blockedByPredecessor:
+        !!activity.predecessorId && statusByActivityId.get(activity.predecessorId) === "TODO",
+    })),
+  };
+}
+
 // US-013: sub-atividades (checklist hierárquico) de uma atividade-pai.
 export async function getSubActivities(parentId: string) {
   await requireDbUser();
@@ -207,6 +252,7 @@ export async function createSubActivity(input: z.infer<typeof subActivitySchema>
         projectId: parent.projectId,
         parentId,
         title,
+        startDate: parent.startDate,
         dueDate: parent.dueDate,
       },
     });
@@ -274,6 +320,7 @@ const activitySchema = z.object({
   title: z.string().min(1, "Título obrigatório"),
   description: z.string().optional(),
   assignedToId: z.string().optional(),
+  startDate: z.coerce.date(), // US-027: obrigatório desde a migration add_activity_start_date
   dueDate: z.coerce.date(),
   predecessorId: z.string().optional(), // US-011
 });
@@ -290,6 +337,17 @@ export async function createActivity(input: z.infer<typeof activitySchema>) {
     if (data.dueDate > project.endDate) {
       throw new Error(
         "O prazo da atividade não pode ser posterior ao prazo final do projeto",
+      );
+    }
+
+    // US-027: startDate precisa fazer sentido como início de uma barra de
+    // Gantt — nunca depois do próprio prazo, nunca antes do projeto começar.
+    if (data.startDate > data.dueDate) {
+      throw new Error("A data de início não pode ser posterior ao prazo da atividade");
+    }
+    if (data.startDate < project.startDate) {
+      throw new Error(
+        `A data de início não pode ser anterior ao início do projeto (${project.startDate.toLocaleDateString("pt-BR")})`,
       );
     }
 
