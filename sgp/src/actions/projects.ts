@@ -266,3 +266,151 @@ export async function getMyManagedProjects() {
     orderBy: { createdAt: "desc" },
   });
 }
+
+// US-028/US-029: perfis que podem ver indicadores agregados de portfólio/
+// equipe. technician não acessa — são indicadores de gestão, não de execução
+// individual (RN aplicável: nenhuma, é apenas leitura restrita por RBAC).
+const PORTFOLIO_METRICS_ROLES = ["admin", "director", "coordinator"] as const;
+
+// Escopo de projetos visível ao usuário para os indicadores agregados:
+// admin/director = portfólio inteiro; coordinator = projetos onde é
+// ProjectMember (mesmo critério de getProjects()/getTeamDeliveryRate()).
+async function getMetricsScopeProjectIds(user: { id: string; role: string }) {
+  if (GLOBAL_VIEW_ROLES.includes(user.role as (typeof GLOBAL_VIEW_ROLES)[number])) {
+    return null; // null = sem filtro de projectId, portfólio inteiro
+  }
+
+  const memberships = await prisma.projectMember.findMany({
+    where: { userId: user.id },
+    select: { projectId: true },
+  });
+  return memberships.map((m) => m.projectId);
+}
+
+function calcSlaRate(done: { dueDate: Date; completedAt: Date | null }[]) {
+  if (done.length === 0) return null;
+  const onTime = done.filter((a) => a.completedAt !== null && a.completedAt <= a.dueDate).length;
+  return Math.round((onTime / done.length) * 100);
+}
+
+// US-028 — REL-001: % de atividades DONE concluídas dentro do prazo,
+// agregado no portfólio visível ao usuário e também aberto por projeto.
+export async function getSlaRate() {
+  const user = await requireRole(...PORTFOLIO_METRICS_ROLES);
+  const scopeProjectIds = await getMetricsScopeProjectIds(user);
+
+  if (scopeProjectIds !== null && scopeProjectIds.length === 0) {
+    return { portfolio: null as number | null, byProject: [] };
+  }
+
+  const [doneActivities, projects] = await Promise.all([
+    prisma.activity.findMany({
+      where: {
+        status: "DONE",
+        deletedAt: null,
+        ...(scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {}),
+      },
+      select: { projectId: true, dueDate: true, completedAt: true },
+    }),
+    prisma.project.findMany({
+      where: {
+        deletedAt: null,
+        ...(scopeProjectIds !== null ? { id: { in: scopeProjectIds } } : {}),
+      },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
+  ]);
+
+  const portfolio = calcSlaRate(doneActivities);
+
+  const byProject = projects.map((project) => ({
+    project,
+    slaRate: calcSlaRate(doneActivities.filter((a) => a.projectId === project.id)),
+  }));
+
+  return { portfolio, byProject };
+}
+
+const WORKLOAD_ACTIVE_STATUSES = ["TODO", "IN_PROGRESS"] as const;
+
+type WorkloadColor = "green" | "amber" | "red";
+
+function workloadColor(relativeLoad: number): WorkloadColor {
+  if (relativeLoad <= 0.7) return "green";
+  if (relativeLoad <= 1.3) return "amber";
+  return "red";
+}
+
+// US-029 — REL-003: carga de trabalho ativa por colaborador, normalizada
+// dentro do grupo de mesma User.area. BLOCKED não conta como carga ativa
+// (representa espera por terceiro, não trabalho em andamento). Colaboradores
+// sem área caem num grupo "Sem área" à parte, nunca comparados com quem tem
+// área definida.
+export async function getWorkloadHeatmap() {
+  const user = await requireRole(...PORTFOLIO_METRICS_ROLES);
+  const scopeProjectIds = await getMetricsScopeProjectIds(user);
+
+  if (scopeProjectIds !== null && scopeProjectIds.length === 0) {
+    return [];
+  }
+
+  const members = await prisma.projectMember.findMany({
+    where: scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {},
+    select: { user: true },
+    distinct: ["userId"],
+  });
+
+  const activeActivities = await prisma.activity.findMany({
+    where: {
+      status: { in: [...WORKLOAD_ACTIVE_STATUSES] },
+      deletedAt: null,
+      assignedToId: { not: null },
+      ...(scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {}),
+    },
+    select: { assignedToId: true },
+  });
+
+  const activeCountByUser = new Map<string, number>();
+  for (const activity of activeActivities) {
+    const id = activity.assignedToId as string;
+    activeCountByUser.set(id, (activeCountByUser.get(id) ?? 0) + 1);
+  }
+
+  const entries = members.map(({ user: member }) => ({
+    user: member,
+    area: member.area ?? null,
+    activeCount: activeCountByUser.get(member.id) ?? 0,
+  }));
+
+  // Agrupa por área ("Sem área" é seu próprio grupo — chave null) e calcula
+  // a média do grupo para normalizar a carga relativa de cada colaborador.
+  const groups = new Map<string | null, typeof entries>();
+  for (const entry of entries) {
+    const group = groups.get(entry.area) ?? [];
+    group.push(entry);
+    groups.set(entry.area, group);
+  }
+
+  const result: Array<{
+    user: (typeof entries)[number]["user"];
+    area: string | null;
+    activeCount: number;
+    relativeLoad: number;
+    color: WorkloadColor;
+  }> = [];
+
+  for (const group of groups.values()) {
+    const groupAverage =
+      group.length === 1
+        ? null // grupo de 1 pessoa: sem base de comparação, tratado abaixo como neutro
+        : group.reduce((sum, e) => sum + e.activeCount, 0) / group.length;
+
+    for (const entry of group) {
+      const relativeLoad = groupAverage === null || groupAverage === 0 ? 1 : entry.activeCount / groupAverage;
+      result.push({ ...entry, relativeLoad, color: workloadColor(relativeLoad) });
+    }
+  }
+
+  return result.sort((a, b) => a.user.name.localeCompare(b.user.name));
+}
