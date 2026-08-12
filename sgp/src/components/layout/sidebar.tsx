@@ -4,9 +4,7 @@ import {
   FolderKanban,
   ListChecks,
   Trophy,
-  CalendarClock,
   FileText,
-  ScrollText,
   ShieldAlert,
   History,
 } from "lucide-react";
@@ -24,11 +22,10 @@ const navItems = [
   { href: "/dashboard/wins", label: "Meus WINs", icon: Trophy },
 ];
 
-const meetingItems = [
-  { href: "/dashboard/reunioes/agenda", label: "Agenda", icon: CalendarClock },
-  { href: "/dashboard/reunioes/pautas", label: "Pautas", icon: FileText },
-  { href: "/dashboard/reunioes/atas", label: "Atas", icon: ScrollText },
-];
+// A ata de cada reunião vive dentro da própria tela de detalhe da reunião
+// (/dashboard/reunioes/pautas/[id], Onda 9) — não há listagem própria de
+// "Atas" nem tela de "Agenda" no backlog do EP-06.
+const meetingItems = [{ href: "/dashboard/reunioes/pautas", label: "Pautas", icon: FileText }];
 
 const statusColors: Record<string, string> = {
   ACTIVE: "bg-[var(--accent-success)]",

@@ -6,13 +6,19 @@ import { requireDbUser, requireRole } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
 import { generateAgendaText, AGENDA_MODEL_NAME } from "@/lib/anthropic";
-import { buildDailyPrompt, buildWeeklyPrompt } from "@/lib/agenda-prompts";
+import {
+  buildDailyPrompt,
+  buildWeeklyPrompt,
+  buildBiweeklyPrompt,
+  buildMonthlyPrompt,
+  buildOneOnOnePrompt,
+} from "@/lib/agenda-prompts";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
 
-// US-032/033: tipos de reunião com geração de pauta via IA implementada
-// nesta onda. BIWEEKLY/MONTHLY/ONE_ON_ONE ficam para a Onda 10.
-const AGENDA_SUPPORTED_TYPES = ["DAILY", "WEEKLY"] as const;
+// US-032/033/034/035/045: geração de pauta via IA cobre os 5 tipos de
+// reunião — esta era a última onda do roadmap (Onda 10).
+const AGENDA_SUPPORTED_TYPES = ["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "ONE_ON_ONE"] as const;
 
 interface AgendaContent {
   text: string;
@@ -242,7 +248,7 @@ export async function generateAgenda(input: z.infer<typeof generateAgendaSchema>
 
     const meeting = await prisma.meeting.findUniqueOrThrow({
       where: { id: meetingId, deletedAt: null },
-      include: { project: true },
+      include: { project: true, participant: true },
     });
 
     if (!AGENDA_SUPPORTED_TYPES.includes(meeting.type as (typeof AGENDA_SUPPORTED_TYPES)[number])) {
@@ -252,8 +258,24 @@ export async function generateAgenda(input: z.infer<typeof generateAgendaSchema>
       await assertProjectAccess(user, meeting.projectId);
     }
 
-    const prompt =
-      meeting.type === "DAILY" ? await buildDailyPrompt(meeting) : await buildWeeklyPrompt(meeting);
+    let prompt: string;
+    switch (meeting.type) {
+      case "DAILY":
+        prompt = await buildDailyPrompt(meeting);
+        break;
+      case "WEEKLY":
+        prompt = await buildWeeklyPrompt(meeting);
+        break;
+      case "BIWEEKLY":
+        prompt = await buildBiweeklyPrompt(meeting);
+        break;
+      case "MONTHLY":
+        prompt = await buildMonthlyPrompt(meeting);
+        break;
+      case "ONE_ON_ONE":
+        prompt = await buildOneOnOnePrompt(meeting);
+        break;
+    }
 
     let text: string;
     try {

@@ -16,9 +16,9 @@ const TYPE_LABEL: Record<string, string> = {
   ONE_ON_ONE: "One-on-One",
 };
 
-// US-032/033: geração de pauta via IA só está disponível para estes tipos
-// nesta onda; os demais ficam para a Onda 10.
-const AGENDA_SUPPORTED_TYPES = ["DAILY", "WEEKLY"];
+// US-032/033/034/035/045: geração de pauta via IA cobre os 5 tipos de
+// reunião desde a Onda 10 (última do roadmap EP-06).
+const AGENDA_SUPPORTED_TYPES = ["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY", "ONE_ON_ONE"];
 const MANAGER_ROLES = ["admin", "director", "coordinator"];
 
 interface AgendaContent {
