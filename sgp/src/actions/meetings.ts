@@ -15,6 +15,7 @@ import {
 } from "@/lib/agenda-prompts";
 import { revalidatePath } from "next/cache";
 import type { Prisma } from "@prisma/client";
+import { type DashboardFilters, periodCutoff } from "@/lib/dashboard-filters";
 
 // US-032/033/034/035/045: geração de pauta via IA cobre os 5 tipos de
 // reunião — esta era a última onda do roadmap (Onda 10).
@@ -497,4 +498,182 @@ export async function removeMeetingDecision(input: z.infer<typeof removeDecision
       error: toActionError(error, "Não foi possível remover a decisão", "removeMeetingDecision"),
     };
   }
+}
+
+// EP-07 (Onda 11) — indicadores de Pautas/Reuniões. Mesmo perfil de acesso
+// dos indicadores de portfólio (getSlaRate/getWorkloadHeatmap, Onda 2):
+// admin/director veem tudo, coordinator só os projetos onde é ProjectMember.
+// technician não acessa (indicador de gestão, não de execução individual).
+const REPORT_ROLES = ["admin", "director", "coordinator"] as const;
+
+export interface ReportFilters extends DashboardFilters {
+  meetingType?: (typeof AGENDA_SUPPORTED_TYPES)[number];
+}
+
+async function getReportScopeProjectIds(user: { id: string; role: string }) {
+  if (user.role === "admin" || user.role === "director") return null;
+
+  const memberships = await prisma.projectMember.findMany({
+    where: { userId: user.id },
+    select: { projectId: true },
+  });
+  return memberships.map((m) => m.projectId);
+}
+
+async function resolveReportScope(filters?: ReportFilters) {
+  const user = await requireRole(...REPORT_ROLES);
+  let scopeProjectIds = await getReportScopeProjectIds(user);
+
+  if (filters?.projectId) {
+    scopeProjectIds = scopeProjectIds === null ? [filters.projectId] : scopeProjectIds.filter((id) => id === filters.projectId);
+  }
+  if (filters?.area) {
+    const projectsInArea = await prisma.project.findMany({
+      where: {
+        area: filters.area,
+        deletedAt: null,
+        ...(scopeProjectIds !== null ? { id: { in: scopeProjectIds } } : {}),
+      },
+      select: { id: true },
+    });
+    scopeProjectIds = projectsInArea.map((p) => p.id);
+  }
+
+  return { scopeProjectIds };
+}
+
+const MEETING_TYPE_LABEL: Record<string, string> = {
+  DAILY: "Daily",
+  WEEKLY: "Semanal",
+  BIWEEKLY: "Quinzenal",
+  MONTHLY: "Mensal",
+  ONE_ON_ONE: "One-on-One",
+};
+
+// Reuniões por tipo, no escopo/período/tipo filtrado.
+export async function getMeetingsByType(filters?: ReportFilters) {
+  const { scopeProjectIds } = await resolveReportScope(filters);
+  if (scopeProjectIds !== null && scopeProjectIds.length === 0) return [];
+
+  const meetings = await prisma.meeting.findMany({
+    where: {
+      deletedAt: null,
+      ...(scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {}),
+      ...(filters?.meetingType ? { type: filters.meetingType } : {}),
+      ...(filters?.period ? { date: { gte: periodCutoff(filters.period) } } : {}),
+    },
+    select: { type: true },
+  });
+
+  const counts = new Map<string, number>();
+  for (const type of AGENDA_SUPPORTED_TYPES) counts.set(type, 0);
+  for (const m of meetings) counts.set(m.type, (counts.get(m.type) ?? 0) + 1);
+
+  return AGENDA_SUPPORTED_TYPES.map((type) => ({
+    type,
+    label: MEETING_TYPE_LABEL[type],
+    count: counts.get(type) ?? 0,
+  }));
+}
+
+// WINs escalados (RN-09) por semana — série temporal, no escopo/período
+// filtrado. Semanas sem escalação aparecem com count=0 (não pula semana).
+export async function getEscalatedWinsTimeline(filters?: ReportFilters) {
+  const { scopeProjectIds } = await resolveReportScope(filters);
+  if (scopeProjectIds !== null && scopeProjectIds.length === 0) return [];
+
+  const wins = await prisma.win.findMany({
+    where: {
+      deletedAt: null,
+      escalated: true,
+      ...(scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {}),
+      ...(filters?.period ? { updatedAt: { gte: periodCutoff(filters.period) } } : {}),
+    },
+    select: { weekNumber: true, year: true },
+    orderBy: [{ year: "asc" }, { weekNumber: "asc" }],
+  });
+
+  if (wins.length === 0) return [];
+
+  const counts = new Map<string, number>();
+  for (const w of wins) {
+    const key = `${w.year}-W${String(w.weekNumber).padStart(2, "0")}`;
+    counts.set(key, (counts.get(key) ?? 0) + 1);
+  }
+
+  // Preenche semanas sem escalação entre a primeira e a última observada,
+  // pra série não "pular" no gráfico.
+  const sortedKeys = Array.from(counts.keys()).sort();
+  const [firstYear, firstWeek] = sortedKeys[0].split("-W").map(Number);
+  const [lastYear, lastWeek] = sortedKeys[sortedKeys.length - 1].split("-W").map(Number);
+
+  const result: { week: string; count: number }[] = [];
+  let year = firstYear;
+  let week = firstWeek;
+  while (year < lastYear || (year === lastYear && week <= lastWeek)) {
+    const key = `${year}-W${String(week).padStart(2, "0")}`;
+    result.push({ week: key, count: counts.get(key) ?? 0 });
+    week += 1;
+    if (week > 53) {
+      week = 1;
+      year += 1;
+    }
+  }
+
+  return result;
+}
+
+// Decisões registradas (Meeting.decisions) agrupadas por projeto, no escopo
+// filtrado (período aplicado sobre Meeting.date, já que a decisão não tem
+// data própria fora do createdAt dentro do Json).
+export async function getDecisionsByProject(filters?: ReportFilters) {
+  const { scopeProjectIds } = await resolveReportScope(filters);
+  if (scopeProjectIds !== null && scopeProjectIds.length === 0) return [];
+
+  const meetings = await prisma.meeting.findMany({
+    where: {
+      deletedAt: null,
+      projectId: { not: null, ...(scopeProjectIds !== null ? { in: scopeProjectIds } : {}) },
+      ...(filters?.period ? { date: { gte: periodCutoff(filters.period) } } : {}),
+    },
+    select: { projectId: true, decisions: true, project: { select: { name: true } } },
+  });
+
+  const counts = new Map<string, { projectName: string; count: number }>();
+  for (const m of meetings) {
+    if (!m.projectId || !m.project) continue;
+    const decisions = (m.decisions as unknown as MeetingDecision[] | null) ?? [];
+    if (decisions.length === 0) continue;
+    const entry = counts.get(m.projectId) ?? { projectName: m.project.name, count: 0 };
+    entry.count += decisions.length;
+    counts.set(m.projectId, entry);
+  }
+
+  return Array.from(counts.entries())
+    .map(([projectId, { projectName, count }]) => ({ projectId, projectName, count }))
+    .sort((a, b) => b.count - a.count);
+}
+
+// % de reuniões com pauta gerada/preenchida (agenda != null) vs. total, no
+// escopo/período/tipo filtrado — mede adoção da pauta automática (Ondas 6-10).
+export async function getAgendaAdoptionRate(filters?: ReportFilters) {
+  const { scopeProjectIds } = await resolveReportScope(filters);
+  if (scopeProjectIds !== null && scopeProjectIds.length === 0) {
+    return { total: 0, withAgenda: 0, rate: null as number | null };
+  }
+
+  const meetings = await prisma.meeting.findMany({
+    where: {
+      deletedAt: null,
+      ...(scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {}),
+      ...(filters?.meetingType ? { type: filters.meetingType } : {}),
+      ...(filters?.period ? { date: { gte: periodCutoff(filters.period) } } : {}),
+    },
+    select: { agenda: true },
+  });
+
+  const total = meetings.length;
+  const withAgenda = meetings.filter((m) => m.agenda !== null).length;
+
+  return { total, withAgenda, rate: total === 0 ? null : Math.round((withAgenda / total) * 100) };
 }

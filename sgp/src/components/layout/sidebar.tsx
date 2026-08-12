@@ -7,6 +7,7 @@ import {
   FileText,
   ShieldAlert,
   History,
+  BarChart3,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { getCurrentWeek } from "@/lib/utils";
@@ -14,6 +15,9 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentDbUser } from "@/lib/auth";
 
 const AUDIT_VIEW_ROLES = ["admin", "director"];
+// EP-07 (Onda 11): mesmo perfil de acesso dos indicadores de portfólio já
+// existentes (getSlaRate/getWorkloadHeatmap) — technician não vê.
+const REPORT_VIEW_ROLES = ["admin", "director", "coordinator"];
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -40,6 +44,7 @@ export async function Sidebar() {
   const monthLabel = new Date().toLocaleDateString("pt-BR", { month: "short" });
   const currentUser = await getCurrentDbUser().catch(() => null);
   const canViewAudit = !!currentUser && AUDIT_VIEW_ROLES.includes(currentUser.role);
+  const canViewReports = !!currentUser && REPORT_VIEW_ROLES.includes(currentUser.role);
 
   const activeProjects = await prisma.project
     .findMany({
@@ -97,6 +102,16 @@ export async function Sidebar() {
           <ShieldAlert className="h-4 w-4" />
           Riscos
         </Link>
+
+        {canViewReports && (
+          <Link
+            href="/dashboard/relatorios"
+            className="flex items-center gap-3 rounded-md px-3 py-2 text-sm text-secondary-foreground transition-colors hover:bg-sidebar-accent hover:text-foreground"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Relatórios
+          </Link>
+        )}
 
         {canViewAudit && (
           <Link
