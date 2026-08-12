@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
+import Link from "next/link";
 import { updateActivityProgress, updateActivityStatus } from "@/actions/activities";
 import type { Activity, User } from "@prisma/client";
 import { TableCell, TableRow } from "@/components/ui/table";
@@ -40,10 +41,14 @@ const STATUS_OPTIONS = [
 ] as const;
 
 interface ActivityRowProps {
-  activity: Activity & { assignedTo: User | null };
+  activity: Activity & { assignedTo: User | null; project?: { id: string; name: string } | null };
+  // US-051: listagem cruzada (/dashboard/atividades) mostra de qual projeto é
+  // cada atividade; dentro da tela de um projeto (contexto já óbvio) essa
+  // coluna some — mesmo componente, um prop a mais.
+  showProject?: boolean;
 }
 
-export function ActivityRow({ activity }: ActivityRowProps) {
+export function ActivityRow({ activity, showProject = false }: ActivityRowProps) {
   const [progress, setProgress] = useState(activity.progress);
   const [status, setStatus] = useState(activity.status);
   const [savingProgress, setSavingProgress] = useState(false);
@@ -84,6 +89,20 @@ export function ActivityRow({ activity }: ActivityRowProps) {
   return (
     <TableRow>
       <TableCell>{activity.title}</TableCell>
+      {showProject && (
+        <TableCell>
+          {activity.project ? (
+            <Link
+              href={`/dashboard/projetos/${activity.project.id}`}
+              className="text-accent hover:underline"
+            >
+              {activity.project.name}
+            </Link>
+          ) : (
+            "—"
+          )}
+        </TableCell>
+      )}
       <TableCell>{activity.assignedTo?.name ?? "—"}</TableCell>
       <TableCell className="font-mono">
         <div className="flex items-center gap-2">

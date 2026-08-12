@@ -172,6 +172,34 @@ export async function getMyActivityStatusCounts() {
   return counts;
 }
 
+const CROSS_PROJECT_VIEW_ROLES = ["admin", "director", "coordinator"] as const;
+
+// US-051: listagem cruzada de atividades (/dashboard/atividades) — mesmo
+// escopo já usado em getOverdueActivities()/getUpcomingDeadlineActivities()
+// para quem chama como gestor (sem filtro de projeto/ProjectMember);
+// technician só vê as próprias (assignedToId). Sem filtro de dueDate — traz
+// qualquer status/prazo, não só atrasada/próxima. Só atividades de primeiro
+// nível (parentId: null); sub-atividades continuam restritas à tela do
+// projeto.
+export async function getAllActivities(filters?: DashboardFilters) {
+  const user = await requireDbUser();
+  const isManager = CROSS_PROJECT_VIEW_ROLES.includes(user.role as (typeof CROSS_PROJECT_VIEW_ROLES)[number]);
+
+  return prisma.activity.findMany({
+    where: {
+      deletedAt: null,
+      parentId: null,
+      ...(isManager ? {} : { assignedToId: user.id }),
+      ...buildActivityFilterWhere(filters, { includeAssignee: isManager }),
+    },
+    include: {
+      assignedTo: true,
+      project: { select: { id: true, name: true, code: true } },
+    },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
 export async function getProjectActivities(projectId: string) {
   await requireDbUser();
   return prisma.activity.findMany({
