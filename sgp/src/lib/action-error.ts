@@ -7,6 +7,7 @@ const EXPOSABLE_MESSAGES = new Set([
   "Selecione o projeto desta reunião",
   "Selecione o participante desta reunião One-on-One",
   "Você não tem acesso a este projeto",
+  "Não foi possível gerar a pauta agora. Tente novamente.",
 ]);
 
 export function toActionError(error: unknown, fallback: string, context: string) {

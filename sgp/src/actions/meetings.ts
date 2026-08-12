@@ -5,7 +5,21 @@ import { prisma } from "@/lib/prisma";
 import { requireDbUser, requireRole } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
+import { generateAgendaText, AGENDA_MODEL_NAME } from "@/lib/anthropic";
+import { buildDailyPrompt, buildWeeklyPrompt } from "@/lib/agenda-prompts";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
+
+// US-032/033: tipos de reunião com geração de pauta via IA implementada
+// nesta onda. BIWEEKLY/MONTHLY/ONE_ON_ONE ficam para a Onda 10.
+const AGENDA_SUPPORTED_TYPES = ["DAILY", "WEEKLY"] as const;
+
+interface AgendaContent {
+  text: string;
+  generatedAt: string;
+  model: string;
+  generatedById: string;
+}
 
 const MEETING_MANAGER_ROLES = ["admin", "director", "coordinator"] as const;
 
@@ -103,6 +117,31 @@ export async function getMeetings(filters?: MeetingFilters) {
   });
 }
 
+// Mesmo escopo de visibilidade de getMeetings(), para uma única reunião:
+// admin/director veem qualquer uma; coordinator/technician só as do(s)
+// projeto(s) onde são ProjectMember, ou a própria One-on-One.
+export async function getMeeting(id: string) {
+  const user = await requireDbUser();
+  const isGlobal = user.role === "admin" || user.role === "director";
+
+  const meeting = await prisma.meeting.findUnique({
+    where: { id, deletedAt: null },
+    include: { project: true, participant: true, createdBy: true },
+  });
+  if (!meeting) return null;
+
+  if (isGlobal || meeting.participantId === user.id) return meeting;
+
+  if (meeting.projectId) {
+    const membership = await prisma.projectMember.findUnique({
+      where: { projectId_userId: { projectId: meeting.projectId, userId: user.id } },
+    });
+    if (membership) return meeting;
+  }
+
+  return null;
+}
+
 export async function createMeeting(input: z.infer<typeof meetingSchema>) {
   try {
     const user = await requireRole(...MEETING_MANAGER_ROLES);
@@ -176,6 +215,120 @@ export async function deleteMeeting(input: z.infer<typeof deleteMeetingSchema>) 
     return {
       success: false as const,
       error: toActionError(error, "Não foi possível excluir a reunião", "deleteMeeting"),
+    };
+  }
+}
+
+const generateAgendaSchema = z.object({ meetingId: z.string() });
+
+// US-032/033: gera a pauta via Anthropic API. Sempre sobrescreve quando
+// chamada — a confirmação de "já existe pauta, substituir?" é responsabilidade
+// da UI, não uma trava do backend. Nunca grava estado parcial: só chega no
+// prisma.meeting.update depois que o texto foi obtido com sucesso.
+export async function generateAgenda(input: z.infer<typeof generateAgendaSchema>) {
+  try {
+    const user = await requireRole(...MEETING_MANAGER_ROLES);
+    const { meetingId } = generateAgendaSchema.parse(input);
+
+    const meeting = await prisma.meeting.findUniqueOrThrow({
+      where: { id: meetingId, deletedAt: null },
+      include: { project: true },
+    });
+
+    if (!AGENDA_SUPPORTED_TYPES.includes(meeting.type as (typeof AGENDA_SUPPORTED_TYPES)[number])) {
+      throw new Error("Geração de pauta por IA ainda não disponível para este tipo de reunião");
+    }
+    if (meeting.projectId) {
+      await assertProjectAccess(user, meeting.projectId);
+    }
+
+    const prompt =
+      meeting.type === "DAILY" ? await buildDailyPrompt(meeting) : await buildWeeklyPrompt(meeting);
+
+    let text: string;
+    try {
+      text = await generateAgendaText(prompt);
+    } catch (aiError) {
+      console.error("[action:generateAgenda] Anthropic API failed", aiError);
+      throw new Error("Não foi possível gerar a pauta agora. Tente novamente.");
+    }
+
+    const agenda: AgendaContent = {
+      text,
+      generatedAt: new Date().toISOString(),
+      model: AGENDA_MODEL_NAME,
+      generatedById: user.id,
+    };
+
+    const updated = await prisma.meeting.update({
+      where: { id: meetingId },
+      data: { agenda: agenda as unknown as Prisma.InputJsonValue },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "generate_agenda",
+      entity: "Meeting",
+      entityId: meetingId,
+      before: meeting.agenda as Prisma.InputJsonValue | null,
+      after: agenda as unknown as Prisma.InputJsonValue,
+    });
+
+    revalidatePath(`/dashboard/reunioes/pautas/${meetingId}`);
+    return { success: true as const, meeting: updated };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível gerar a pauta agora. Tente novamente.", "generateAgenda"),
+    };
+  }
+}
+
+const updateAgendaSchema = z.object({
+  meetingId: z.string(),
+  text: z.string().min(1, "A pauta não pode ficar vazia"),
+});
+
+// Edição manual do texto gerado — mantém generatedAt/model originais (é a
+// mesma geração, só com o texto ajustado pelo coordenador).
+export async function updateMeetingAgenda(input: z.infer<typeof updateAgendaSchema>) {
+  try {
+    const user = await requireRole(...MEETING_MANAGER_ROLES);
+    const { meetingId, text } = updateAgendaSchema.parse(input);
+
+    const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: meetingId, deletedAt: null } });
+    if (meeting.projectId) {
+      await assertProjectAccess(user, meeting.projectId);
+    }
+
+    const previous = meeting.agenda as unknown as AgendaContent | null;
+    const agenda: AgendaContent = {
+      text,
+      generatedAt: previous?.generatedAt ?? new Date().toISOString(),
+      model: previous?.model ?? AGENDA_MODEL_NAME,
+      generatedById: previous?.generatedById ?? user.id,
+    };
+
+    const updated = await prisma.meeting.update({
+      where: { id: meetingId },
+      data: { agenda: agenda as unknown as Prisma.InputJsonValue },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "update_agenda",
+      entity: "Meeting",
+      entityId: meetingId,
+      before: meeting.agenda as Prisma.InputJsonValue | null,
+      after: agenda as unknown as Prisma.InputJsonValue,
+    });
+
+    revalidatePath(`/dashboard/reunioes/pautas/${meetingId}`);
+    return { success: true as const, meeting: updated };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível salvar a pauta", "updateMeetingAgenda"),
     };
   }
 }

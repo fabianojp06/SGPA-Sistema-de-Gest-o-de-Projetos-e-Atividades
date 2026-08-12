@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getMeetings } from "@/actions/meetings";
 import { getProjects } from "@/actions/projects";
 import { getActiveUsers } from "@/actions/users";
@@ -135,7 +136,12 @@ export default async function PautasPage({ searchParams }: PautasPageProps) {
                       <Badge variant="outline">{TYPE_LABEL[meeting.type]}</Badge>
                     </TableCell>
                     <TableCell>
-                      {meeting.project?.name ?? meeting.participant?.name ?? "—"}
+                      <Link
+                        href={`/dashboard/reunioes/pautas/${meeting.id}`}
+                        className="text-accent hover:underline"
+                      >
+                        {meeting.project?.name ?? meeting.participant?.name ?? "—"}
+                      </Link>
                     </TableCell>
                     <TableCell>{meeting.createdBy.name}</TableCell>
                     <TableCell>
