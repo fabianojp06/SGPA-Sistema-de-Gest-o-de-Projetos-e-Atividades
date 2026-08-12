@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getCurrentDbUser } from "@/lib/auth";
 import {
   getProjects,
@@ -18,6 +19,8 @@ import { getMyWinsThisWeek, getTeamWinsThisWeek } from "@/actions/wins";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
+import { parseDashboardFilters, hasActiveFilters } from "@/lib/dashboard-filters";
+import { DashboardFilterBar } from "@/components/dashboard/dashboard-filter-bar";
 
 const TEAM_VIEW_ROLES = ["admin", "director", "coordinator"];
 
@@ -69,10 +72,19 @@ function StatTile({
   );
 }
 
-export default async function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+export default async function DashboardPage({ searchParams }: DashboardPageProps) {
   const currentUser = await getCurrentDbUser();
   const isManager = !!currentUser && TEAM_VIEW_ROLES.includes(currentUser.role);
   const isDirector = !!currentUser && DIRECTOR_VIEW_ROLES.includes(currentUser.role);
+
+  // US-030: filtros globais lidos da URL — aplicados como AND sobre o escopo
+  // RBAC de cada action, nunca o substituindo (ver dashboard-filters.ts).
+  const filters = parseDashboardFilters(await searchParams);
+  const filtersActive = hasActiveFilters(filters);
 
   // US-024: técnico vê só suas próprias atividades atrasadas/próximas do
   // prazo. Gestores continuam com a visão de equipe (comportamento existente).
@@ -88,16 +100,24 @@ export default async function DashboardPage() {
     slaRate,
   ] = await Promise.all([
     getProjects(),
-    isManager ? getOverdueActivities() : getMyOverdueActivities(),
-    isManager ? getUpcomingDeadlineActivities() : getMyUpcomingDeadlineActivities(),
+    isManager ? getOverdueActivities(filters) : getMyOverdueActivities(filters),
+    isManager
+      ? getUpcomingDeadlineActivities(undefined, filters)
+      : getMyUpcomingDeadlineActivities(undefined, filters),
     isManager ? getTeamWinsThisWeek() : getMyWinsThisWeek(),
     isManager ? Promise.resolve(null) : getMyActivityStatusCounts(),
-    isManager ? getMyManagedProjects() : Promise.resolve(null),
-    isManager ? getTeamDeliveryRate() : Promise.resolve(null),
+    isManager ? getMyManagedProjects(filters) : Promise.resolve(null),
+    isManager ? getTeamDeliveryRate(filters) : Promise.resolve(null),
     // US-026: resumo executivo do portfólio — restrito a admin/director.
     isDirector ? getExecutiveSummary() : Promise.resolve(null),
-    isDirector ? getSlaRate() : Promise.resolve(null),
+    isDirector ? getSlaRate(filters) : Promise.resolve(null),
   ]);
+
+  // US-030: opções da barra de filtros — projetos/áreas do escopo já
+  // visível ao usuário (getProjects() já aplica RBAC), responsável só para
+  // quem vê blocos de equipe.
+  const areaOptions = Array.from(new Set(projects.map((p) => p.area))).sort();
+  const memberOptions = isManager && deliveryRate ? deliveryRate.map(({ user }) => user) : undefined;
 
   const activeProjects = projects.filter((p) => p.status === "ACTIVE");
   const avgProgress =
@@ -118,6 +138,18 @@ export default async function DashboardPage() {
         </p>
       </div>
 
+      {/* US-030: filtros globais — período, projeto, área, status e (para
+          gestores) responsável. Sempre AND sobre o escopo RBAC já aplicado
+          em cada Server Action, nunca o substitui. */}
+      <Suspense fallback={<div className="h-14 rounded-lg border border-border bg-muted/20" />}>
+        <DashboardFilterBar
+          projects={activeProjects}
+          areas={areaOptions}
+          members={memberOptions}
+          hasActiveFilters={filtersActive}
+        />
+      </Suspense>
+
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         <StatTile label="Projetos ativos" value={activeProjects.length} />
         <StatTile label="Progresso médio" value={avgProgress} accent="success" />
@@ -135,7 +167,9 @@ export default async function DashboardPage() {
           <CardContent>
             {overdue.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Nenhuma atividade atrasada. 🎉
+                {filtersActive
+                  ? "Nenhum resultado para os filtros aplicados."
+                  : "Nenhuma atividade atrasada. 🎉"}
               </p>
             ) : (
               <div className="flex flex-col gap-2">
@@ -215,7 +249,9 @@ export default async function DashboardPage() {
             <CardContent>
               {managedProjects.length === 0 ? (
                 <p className="text-sm text-muted-foreground">
-                  Nenhum projeto sob sua gestão no momento.
+                  {filtersActive
+                    ? "Nenhum resultado para os filtros aplicados."
+                    : "Nenhum projeto sob sua gestão no momento."}
                 </p>
               ) : (
                 <div className="flex flex-col gap-2">

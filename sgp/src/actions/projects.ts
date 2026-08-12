@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole, requireDbUser } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
+import { type DashboardFilters, periodCutoff } from "@/lib/dashboard-filters";
 import { revalidatePath } from "next/cache";
 
 const projectSchema = z.object({
@@ -209,22 +210,41 @@ export async function cloneProject(input: z.infer<typeof cloneProjectSchema>) {
 // "sob gestão" usado em getProjects() para coordinator.
 const TEAM_DELIVERY_ROLES = ["admin", "director", "coordinator"] as const;
 
-export async function getTeamDeliveryRate() {
+// US-030: filters.projectId/area restringem AND sobre os projetos onde o
+// usuário já é ProjectMember — nunca um projeto fora desse escopo, mesmo
+// que o valor do filtro tente apontar pra lá (ele simplesmente não bate
+// com managedProjectIds e o resultado fica vazio). filters.assignedToId
+// restringe a exibição a 1 colaborador específico.
+export async function getTeamDeliveryRate(filters?: DashboardFilters) {
   const user = await requireRole(...TEAM_DELIVERY_ROLES);
 
-  const managedProjectIds = (
+  let managedProjectIds = (
     await prisma.projectMember.findMany({
       where: { userId: user.id },
       select: { projectId: true },
     })
   ).map((m) => m.projectId);
 
+  if (filters?.projectId) {
+    managedProjectIds = managedProjectIds.filter((id) => id === filters.projectId);
+  }
+  if (filters?.area) {
+    const projectsInArea = await prisma.project.findMany({
+      where: { id: { in: managedProjectIds }, area: filters.area },
+      select: { id: true },
+    });
+    managedProjectIds = projectsInArea.map((p) => p.id);
+  }
+
   if (managedProjectIds.length === 0) {
     return [];
   }
 
   const members = await prisma.projectMember.findMany({
-    where: { projectId: { in: managedProjectIds } },
+    where: {
+      projectId: { in: managedProjectIds },
+      ...(filters?.assignedToId ? { userId: filters.assignedToId } : {}),
+    },
     select: { user: true },
     distinct: ["userId"],
   });
@@ -235,6 +255,7 @@ export async function getTeamDeliveryRate() {
       status: "DONE",
       deletedAt: null,
       assignedToId: { not: null },
+      ...(filters?.period ? { completedAt: { gte: periodCutoff(filters.period) } } : {}),
     },
     select: { assignedToId: true, dueDate: true, completedAt: true },
   });
@@ -259,10 +280,15 @@ export async function getTeamDeliveryRate() {
 // ProjectMember, independente do papel (ao contrário de getProjects(), que
 // para admin/director retorna o portfólio inteiro). Usado no dashboard do
 // coordenador para refletir especificamente a equipe sob sua gestão direta.
-export async function getMyManagedProjects() {
+export async function getMyManagedProjects(filters?: DashboardFilters) {
   const user = await requireDbUser();
   return prisma.project.findMany({
-    where: { deletedAt: null, members: { some: { userId: user.id } } },
+    where: {
+      deletedAt: null,
+      members: { some: { userId: user.id } },
+      ...(filters?.projectId ? { id: filters.projectId } : {}),
+      ...(filters?.area ? { area: filters.area } : {}),
+    },
     orderBy: { createdAt: "desc" },
   });
 }
@@ -295,9 +321,27 @@ function calcSlaRate(done: { dueDate: Date; completedAt: Date | null }[]) {
 
 // US-028 — REL-001: % de atividades DONE concluídas dentro do prazo,
 // agregado no portfólio visível ao usuário e também aberto por projeto.
-export async function getSlaRate() {
+// US-030: filters.projectId/area restringem em cima do escopo RBAC (nunca o
+// substituem — se o projeto do filtro não estiver em scopeProjectIds, vira
+// escopo vazio); filters.period restringe pela data de conclusão.
+export async function getSlaRate(filters?: DashboardFilters) {
   const user = await requireRole(...PORTFOLIO_METRICS_ROLES);
-  const scopeProjectIds = await getMetricsScopeProjectIds(user);
+  let scopeProjectIds = await getMetricsScopeProjectIds(user);
+
+  if (filters?.projectId) {
+    scopeProjectIds = scopeProjectIds === null ? [filters.projectId] : scopeProjectIds.filter((id) => id === filters.projectId);
+  }
+  if (filters?.area) {
+    const projectsInArea = await prisma.project.findMany({
+      where: {
+        area: filters.area,
+        deletedAt: null,
+        ...(scopeProjectIds !== null ? { id: { in: scopeProjectIds } } : {}),
+      },
+      select: { id: true },
+    });
+    scopeProjectIds = projectsInArea.map((p) => p.id);
+  }
 
   if (scopeProjectIds !== null && scopeProjectIds.length === 0) {
     return { portfolio: null as number | null, byProject: [] };
@@ -309,6 +353,7 @@ export async function getSlaRate() {
         status: "DONE",
         deletedAt: null,
         ...(scopeProjectIds !== null ? { projectId: { in: scopeProjectIds } } : {}),
+        ...(filters?.period ? { completedAt: { gte: periodCutoff(filters.period) } } : {}),
       },
       select: { projectId: true, dueDate: true, completedAt: true },
     }),

@@ -7,7 +7,42 @@ import { requireDbUser, requireRole } from "@/lib/auth";
 import { logAudit } from "@/actions/audit";
 import { toActionError } from "@/lib/action-error";
 import { UPCOMING_DEADLINE_WINDOW_DAYS } from "@/lib/deadlines";
+import { type DashboardFilters, periodCutoff } from "@/lib/dashboard-filters";
 import { revalidatePath } from "next/cache";
+
+// US-030: monta o recorte adicional (AND) a partir dos filtros globais do
+// dashboard, exceto `dueDate` — cada action já tem sua própria condição de
+// `dueDate` (atrasada/próxima) e precisa combiná-la com o corte de período
+// no mesmo objeto (duas chaves `dueDate` no spread se sobrescreveriam).
+// Nunca substitui o escopo RBAC/pessoal já presente no `where` de cada
+// action — só adiciona restrições em cima dele. `includeAssignee` controla
+// se o filtro de responsável é aplicado (nas variantes "My*" ele é
+// ignorado, pois assignedToId já está fixado no próprio usuário).
+function buildActivityFilterWhere(
+  filters: DashboardFilters | undefined,
+  {
+    includeAssignee = true,
+    allowedStatuses,
+  }: { includeAssignee?: boolean; allowedStatuses?: readonly string[] } = {},
+): Prisma.ActivityWhereInput {
+  if (!filters) return {};
+
+  // Blocos de "atrasada"/"próxima" só fazem sentido para status em aberto —
+  // um filtro de status fora desse conjunto (ex: DONE) é ignorado em vez de
+  // devolver atividade concluída rotulada como atrasada.
+  const statusFilterAllowed = !allowedStatuses || (filters.status && allowedStatuses.includes(filters.status));
+
+  return {
+    ...(filters.projectId ? { projectId: filters.projectId } : {}),
+    ...(filters.area ? { project: { area: filters.area } } : {}),
+    ...(filters.status && statusFilterAllowed ? { status: filters.status } : {}),
+    ...(includeAssignee && filters.assignedToId ? { assignedToId: filters.assignedToId } : {}),
+  };
+}
+
+function periodDueDateGte(filters: DashboardFilters | undefined): Date | undefined {
+  return filters?.period ? periodCutoff(filters.period) : undefined;
+}
 
 // RN-04: só gestor/admin altera prazo de atividade de outros.
 const ACTIVITY_MANAGER_ROLES = ["admin", "director", "coordinator"] as const;
@@ -32,13 +67,17 @@ async function recalcProjectProgress(tx: Prisma.TransactionClient, projectId: st
 const OPEN_STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED"] as const;
 
 // US-014: atividades com prazo vencido e status ≠ Concluída/Cancelada.
-export async function getOverdueActivities() {
+// US-030: `filters` aplica período/projeto/área/responsável/status como AND
+// sobre este escopo — nunca o substitui.
+export async function getOverdueActivities(filters?: DashboardFilters) {
   await requireDbUser();
+  const periodGte = periodDueDateGte(filters);
   return prisma.activity.findMany({
     where: {
       status: { in: [...OPEN_STATUSES] },
-      dueDate: { lt: new Date() },
+      dueDate: { lt: new Date(), ...(periodGte ? { gte: periodGte } : {}) },
       deletedAt: null,
+      ...buildActivityFilterWhere(filters, { allowedStatuses: OPEN_STATUSES }),
     },
     include: { assignedTo: true, project: true },
     orderBy: { dueDate: "asc" },
@@ -48,16 +87,19 @@ export async function getOverdueActivities() {
 // US-015: atividades com prazo dentro da janela configurável (RN-08).
 export async function getUpcomingDeadlineActivities(
   windowDays: number = UPCOMING_DEADLINE_WINDOW_DAYS,
+  filters?: DashboardFilters,
 ) {
   await requireDbUser();
   const now = new Date();
   const limit = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+  const periodGte = periodDueDateGte(filters);
 
   return prisma.activity.findMany({
     where: {
       status: { in: [...OPEN_STATUSES] },
-      dueDate: { gte: now, lte: limit },
+      dueDate: { gte: periodGte && periodGte > now ? periodGte : now, lte: limit },
       deletedAt: null,
+      ...buildActivityFilterWhere(filters, { allowedStatuses: OPEN_STATUSES }),
     },
     include: { assignedTo: true, project: true },
     orderBy: { dueDate: "asc" },
@@ -66,14 +108,17 @@ export async function getUpcomingDeadlineActivities(
 
 // US-024: mesmas listas de US-014/US-015, mas restritas às atividades
 // atribuídas ao próprio usuário — visão pessoal do técnico no dashboard.
-export async function getMyOverdueActivities() {
+// includeAssignee: false porque assignedToId já está fixo no usuário.
+export async function getMyOverdueActivities(filters?: DashboardFilters) {
   const user = await requireDbUser();
+  const periodGte = periodDueDateGte(filters);
   return prisma.activity.findMany({
     where: {
       assignedToId: user.id,
       status: { in: [...OPEN_STATUSES] },
-      dueDate: { lt: new Date() },
+      dueDate: { lt: new Date(), ...(periodGte ? { gte: periodGte } : {}) },
       deletedAt: null,
+      ...buildActivityFilterWhere(filters, { includeAssignee: false, allowedStatuses: OPEN_STATUSES }),
     },
     include: { project: true },
     orderBy: { dueDate: "asc" },
@@ -82,17 +127,20 @@ export async function getMyOverdueActivities() {
 
 export async function getMyUpcomingDeadlineActivities(
   windowDays: number = UPCOMING_DEADLINE_WINDOW_DAYS,
+  filters?: DashboardFilters,
 ) {
   const user = await requireDbUser();
   const now = new Date();
   const limit = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+  const periodGte = periodDueDateGte(filters);
 
   return prisma.activity.findMany({
     where: {
       assignedToId: user.id,
       status: { in: [...OPEN_STATUSES] },
-      dueDate: { gte: now, lte: limit },
+      dueDate: { gte: periodGte && periodGte > now ? periodGte : now, lte: limit },
       deletedAt: null,
+      ...buildActivityFilterWhere(filters, { includeAssignee: false, allowedStatuses: OPEN_STATUSES }),
     },
     include: { project: true },
     orderBy: { dueDate: "asc" },
