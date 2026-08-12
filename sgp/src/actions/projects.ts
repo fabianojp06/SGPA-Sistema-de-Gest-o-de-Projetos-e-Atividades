@@ -202,3 +202,67 @@ export async function cloneProject(input: z.infer<typeof cloneProjectSchema>) {
     };
   }
 }
+
+// US-025: índice de entrega no prazo por colaborador — REL-002. Escopo:
+// colaboradores dos projetos onde o usuário autenticado (coordinator/
+// director/admin) é ProjectMember, reaproveitando o mesmo critério de
+// "sob gestão" usado em getProjects() para coordinator.
+const TEAM_DELIVERY_ROLES = ["admin", "director", "coordinator"] as const;
+
+export async function getTeamDeliveryRate() {
+  const user = await requireRole(...TEAM_DELIVERY_ROLES);
+
+  const managedProjectIds = (
+    await prisma.projectMember.findMany({
+      where: { userId: user.id },
+      select: { projectId: true },
+    })
+  ).map((m) => m.projectId);
+
+  if (managedProjectIds.length === 0) {
+    return [];
+  }
+
+  const members = await prisma.projectMember.findMany({
+    where: { projectId: { in: managedProjectIds } },
+    select: { user: true },
+    distinct: ["userId"],
+  });
+
+  const doneActivities = await prisma.activity.findMany({
+    where: {
+      projectId: { in: managedProjectIds },
+      status: "DONE",
+      deletedAt: null,
+      assignedToId: { not: null },
+    },
+    select: { assignedToId: true, dueDate: true, completedAt: true },
+  });
+
+  return members
+    .map(({ user: member }) => {
+      const memberDone = doneActivities.filter((a) => a.assignedToId === member.id);
+      const onTime = memberDone.filter(
+        (a) => a.completedAt !== null && a.completedAt <= a.dueDate,
+      ).length;
+
+      return {
+        user: member,
+        totalDone: memberDone.length,
+        onTimeRate: memberDone.length === 0 ? null : Math.round((onTime / memberDone.length) * 100),
+      };
+    })
+    .sort((a, b) => a.user.name.localeCompare(b.user.name));
+}
+
+// US-025: "Projetos da minha equipe" — projetos onde o usuário autenticado é
+// ProjectMember, independente do papel (ao contrário de getProjects(), que
+// para admin/director retorna o portfólio inteiro). Usado no dashboard do
+// coordenador para refletir especificamente a equipe sob sua gestão direta.
+export async function getMyManagedProjects() {
+  const user = await requireDbUser();
+  return prisma.project.findMany({
+    where: { deletedAt: null, members: { some: { userId: user.id } } },
+    orderBy: { createdAt: "desc" },
+  });
+}

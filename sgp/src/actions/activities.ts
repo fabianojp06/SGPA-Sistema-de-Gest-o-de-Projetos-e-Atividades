@@ -64,6 +64,65 @@ export async function getUpcomingDeadlineActivities(
   });
 }
 
+// US-024: mesmas listas de US-014/US-015, mas restritas às atividades
+// atribuídas ao próprio usuário — visão pessoal do técnico no dashboard.
+export async function getMyOverdueActivities() {
+  const user = await requireDbUser();
+  return prisma.activity.findMany({
+    where: {
+      assignedToId: user.id,
+      status: { in: [...OPEN_STATUSES] },
+      dueDate: { lt: new Date() },
+      deletedAt: null,
+    },
+    include: { project: true },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+export async function getMyUpcomingDeadlineActivities(
+  windowDays: number = UPCOMING_DEADLINE_WINDOW_DAYS,
+) {
+  const user = await requireDbUser();
+  const now = new Date();
+  const limit = new Date(now.getTime() + windowDays * 24 * 60 * 60 * 1000);
+
+  return prisma.activity.findMany({
+    where: {
+      assignedToId: user.id,
+      status: { in: [...OPEN_STATUSES] },
+      dueDate: { gte: now, lte: limit },
+      deletedAt: null,
+    },
+    include: { project: true },
+    orderBy: { dueDate: "asc" },
+  });
+}
+
+const ACTIVITY_STATUSES = ["TODO", "IN_PROGRESS", "DONE", "BLOCKED", "CANCELLED"] as const;
+
+// US-024: contagem por status (RN-10, enum fechado) das atividades atribuídas
+// ao usuário autenticado — exclui sub-atividades/checklist (parentId != null)
+// para não distorcer a carga percebida com itens leves de checklist (US-013).
+export async function getMyActivityStatusCounts() {
+  const user = await requireDbUser();
+  const grouped = await prisma.activity.groupBy({
+    by: ["status"],
+    where: { assignedToId: user.id, deletedAt: null, parentId: null },
+    _count: { _all: true },
+  });
+
+  const counts = Object.fromEntries(
+    ACTIVITY_STATUSES.map((status) => [status, 0]),
+  ) as Record<(typeof ACTIVITY_STATUSES)[number], number>;
+
+  for (const row of grouped) {
+    counts[row.status] = row._count._all;
+  }
+
+  return counts;
+}
+
 export async function getProjectActivities(projectId: string) {
   await requireDbUser();
   return prisma.activity.findMany({
