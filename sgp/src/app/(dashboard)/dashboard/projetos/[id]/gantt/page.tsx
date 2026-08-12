@@ -34,6 +34,29 @@ function barPosition(projectStart: Date, projectEnd: Date, activityStart: Date, 
   return { leftPct, widthPct };
 }
 
+// Régua de tempo: uma marcação no 1º dia de cada mês entre o início e o fim
+// do projeto, posicionada na mesma escala % das barras — sem isso, as barras
+// mostram duração relativa mas nenhuma data real fica visível na tela.
+function buildMonthTicks(projectStart: Date, projectEnd: Date) {
+  const totalMs = projectEnd.getTime() - projectStart.getTime();
+  if (totalMs <= 0) return [];
+
+  const ticks: { leftPct: number; label: string }[] = [];
+  const cursor = new Date(projectStart.getFullYear(), projectStart.getMonth(), 1);
+  if (cursor < projectStart) cursor.setMonth(cursor.getMonth() + 1);
+
+  while (cursor <= projectEnd) {
+    const leftPct = ((cursor.getTime() - projectStart.getTime()) / totalMs) * 100;
+    ticks.push({
+      leftPct,
+      label: cursor.toLocaleDateString("pt-BR", { month: "short", year: "2-digit" }),
+    });
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+
+  return ticks;
+}
+
 export default async function ProjectGanttPage({ params }: GanttPageProps) {
   const { id } = await params;
   const data = await getProjectGanttData(id);
@@ -41,6 +64,7 @@ export default async function ProjectGanttPage({ params }: GanttPageProps) {
   if (!data) notFound();
 
   const { project, activities } = data;
+  const monthTicks = buildMonthTicks(project.startDate, project.endDate);
 
   return (
     <div className="flex flex-col gap-6">
@@ -67,57 +91,89 @@ export default async function ProjectGanttPage({ params }: GanttPageProps) {
               Nenhuma atividade para exibir no Gantt ainda.
             </p>
           ) : (
-            <div className="flex flex-col gap-3 overflow-x-auto">
-              {activities.map((activity) => {
-                const { leftPct, widthPct } = barPosition(
-                  project.startDate,
-                  project.endDate,
-                  activity.startDate,
-                  activity.dueDate,
-                );
+            <div className="overflow-x-auto">
+              <div className="flex flex-col gap-3 min-w-[720px]">
+                {/* Régua de tempo — alinhada com a mesma largura/offset das
+                    barras abaixo (grid de 2 colunas: rótulo fixo | trilha %). */}
+                <div className="grid grid-cols-[220px_1fr] items-end gap-3">
+                  <div />
+                  <div className="relative h-5 border-b border-border">
+                    {monthTicks.map((tick) => (
+                      <div
+                        key={tick.label + tick.leftPct}
+                        className="absolute bottom-0 flex -translate-x-1/2 flex-col items-center"
+                        style={{ left: `${tick.leftPct}%` }}
+                      >
+                        <span className="pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">
+                          {tick.label}
+                        </span>
+                        <div className="h-1.5 w-px bg-border" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-                return (
-                  <div key={activity.id} className="flex flex-col gap-1.5 min-w-[560px]">
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{activity.title}</span>
-                        {activity.assignedTo && (
-                          <span className="text-xs text-muted-foreground">
-                            {activity.assignedTo.name}
+                {activities.map((activity) => {
+                  const { leftPct, widthPct } = barPosition(
+                    project.startDate,
+                    project.endDate,
+                    activity.startDate,
+                    activity.dueDate,
+                  );
+
+                  return (
+                    <div key={activity.id} className="grid grid-cols-[220px_1fr] items-center gap-3">
+                      <div className="flex flex-col gap-0.5 overflow-hidden">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate text-sm font-medium text-foreground">
+                            {activity.title}
                           </span>
-                        )}
-                        {activity.predecessorTitle && (
+                          <Badge variant={STATUS_VARIANT[activity.status] ?? "outline"}>
+                            {activity.status}
+                          </Badge>
+                        </div>
+                        <span className="text-xs text-muted-foreground">
+                          {activity.assignedTo?.name ?? "Sem responsável"}
+                          {activity.predecessorTitle && ` · depende de "${activity.predecessorTitle}"`}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col gap-1">
+                        <div className="relative h-6 w-full rounded-md bg-muted/30">
+                          <div
+                            className={`absolute top-0 h-full rounded-md ${
+                              activity.blockedByPredecessor
+                                ? "border-2 border-dashed border-[var(--accent-danger)] bg-[var(--accent-danger)]/15"
+                                : "bg-accent/70"
+                            }`}
+                            style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
+                          />
+                        </div>
+                        {/* Datas sempre visíveis — não só em tooltip. */}
+                        <div className="relative h-4 text-[11px] text-muted-foreground">
                           <span
-                            className="text-xs text-muted-foreground"
-                            title={`Depende de "${activity.predecessorTitle}"`}
+                            className="absolute -translate-x-1/2 whitespace-nowrap"
+                            style={{ left: `${leftPct}%` }}
                           >
-                            ⤷ {activity.predecessorTitle}
+                            {formatDate(activity.startDate)}
+                          </span>
+                          <span
+                            className="absolute -translate-x-1/2 whitespace-nowrap"
+                            style={{ left: `${Math.min(leftPct + widthPct, 96)}%` }}
+                          >
+                            {formatDate(activity.dueDate)}
+                          </span>
+                        </div>
+                        {activity.blockedByPredecessor && (
+                          <span className="text-[11px] text-[var(--accent-danger)]">
+                            Bloqueada: &ldquo;{activity.predecessorTitle}&rdquo; ainda não foi iniciada
                           </span>
                         )}
                       </div>
-                      <Badge variant={STATUS_VARIANT[activity.status] ?? "outline"}>
-                        {activity.status}
-                      </Badge>
                     </div>
-
-                    <div className="relative h-6 w-full rounded-md bg-muted/30">
-                      <div
-                        className={`absolute top-0 h-full rounded-md ${
-                          activity.blockedByPredecessor
-                            ? "border-2 border-dashed border-[var(--accent-danger)] bg-[var(--accent-danger)]/15"
-                            : "bg-accent/70"
-                        }`}
-                        style={{ left: `${leftPct}%`, width: `${widthPct}%` }}
-                        title={
-                          activity.blockedByPredecessor
-                            ? `Bloqueada: "${activity.predecessorTitle}" ainda não foi iniciada`
-                            : `${formatDate(activity.startDate)} — ${formatDate(activity.dueDate)}`
-                        }
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           )}
         </CardContent>
