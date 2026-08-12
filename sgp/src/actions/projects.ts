@@ -414,3 +414,47 @@ export async function getWorkloadHeatmap() {
 
   return result.sort((a, b) => a.user.name.localeCompare(b.user.name));
 }
+
+// US-026 — REL-001: resumo executivo do portfólio para o Dashboard do
+// Diretor. Diferente de getSlaRate()/getWorkloadHeatmap() (Onda 2), esta
+// action é restrita a admin/director — coordinator não vê o portfólio
+// inteiro, só a fatia onde é ProjectMember (blocos da Onda 1).
+const EXECUTIVE_SUMMARY_ROLES = ["admin", "director"] as const;
+
+export async function getExecutiveSummary() {
+  await requireRole(...EXECUTIVE_SUMMARY_ROLES);
+
+  const [activeProjects, criticalProjectsCount, openEscalationsCount] = await Promise.all([
+    prisma.project.findMany({
+      where: { status: "ACTIVE", deletedAt: null },
+      select: { progress: true },
+    }),
+    prisma.project.count({
+      where: {
+        deletedAt: null,
+        risks: {
+          some: {
+            projectId: { not: null },
+            level: { in: ["HIGH", "CRITICAL"] },
+            status: "OPEN",
+          },
+        },
+      },
+    }),
+    prisma.win.count({
+      where: { escalated: true, status: { not: "DONE" }, deletedAt: null },
+    }),
+  ]);
+
+  const avgPortfolioProgress =
+    activeProjects.length === 0
+      ? null
+      : Math.round(activeProjects.reduce((sum, p) => sum + p.progress, 0) / activeProjects.length);
+
+  return {
+    activeProjectsCount: activeProjects.length,
+    criticalProjectsCount,
+    avgPortfolioProgress,
+    openEscalationsCount,
+  };
+}

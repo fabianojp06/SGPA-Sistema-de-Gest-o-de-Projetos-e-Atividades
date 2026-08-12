@@ -1,6 +1,12 @@
 import Link from "next/link";
 import { getCurrentDbUser } from "@/lib/auth";
-import { getProjects, getMyManagedProjects, getTeamDeliveryRate } from "@/actions/projects";
+import {
+  getProjects,
+  getMyManagedProjects,
+  getTeamDeliveryRate,
+  getExecutiveSummary,
+  getSlaRate,
+} from "@/actions/projects";
 import {
   getOverdueActivities,
   getUpcomingDeadlineActivities,
@@ -14,6 +20,10 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
 
 const TEAM_VIEW_ROLES = ["admin", "director", "coordinator"];
+
+// US-026: Dashboard Executivo — restrito a admin/director (REL-001), à
+// diferença do coordinator que só vê a fatia de equipe da Onda 1.
+const DIRECTOR_VIEW_ROLES = ["admin", "director"];
 
 const STATUS_LABELS = {
   TODO: "A Fazer",
@@ -37,7 +47,7 @@ function StatTile({
   accent,
 }: {
   label: string;
-  value: number;
+  value: number | string;
   accent?: "success" | "warning" | "danger";
 }) {
   const accentClass =
@@ -62,19 +72,32 @@ function StatTile({
 export default async function DashboardPage() {
   const currentUser = await getCurrentDbUser();
   const isManager = !!currentUser && TEAM_VIEW_ROLES.includes(currentUser.role);
+  const isDirector = !!currentUser && DIRECTOR_VIEW_ROLES.includes(currentUser.role);
 
   // US-024: técnico vê só suas próprias atividades atrasadas/próximas do
   // prazo. Gestores continuam com a visão de equipe (comportamento existente).
-  const [projects, overdue, upcoming, wins, statusCounts, managedProjects, deliveryRate] =
-    await Promise.all([
-      getProjects(),
-      isManager ? getOverdueActivities() : getMyOverdueActivities(),
-      isManager ? getUpcomingDeadlineActivities() : getMyUpcomingDeadlineActivities(),
-      isManager ? getTeamWinsThisWeek() : getMyWinsThisWeek(),
-      isManager ? Promise.resolve(null) : getMyActivityStatusCounts(),
-      isManager ? getMyManagedProjects() : Promise.resolve(null),
-      isManager ? getTeamDeliveryRate() : Promise.resolve(null),
-    ]);
+  const [
+    projects,
+    overdue,
+    upcoming,
+    wins,
+    statusCounts,
+    managedProjects,
+    deliveryRate,
+    executiveSummary,
+    slaRate,
+  ] = await Promise.all([
+    getProjects(),
+    isManager ? getOverdueActivities() : getMyOverdueActivities(),
+    isManager ? getUpcomingDeadlineActivities() : getMyUpcomingDeadlineActivities(),
+    isManager ? getTeamWinsThisWeek() : getMyWinsThisWeek(),
+    isManager ? Promise.resolve(null) : getMyActivityStatusCounts(),
+    isManager ? getMyManagedProjects() : Promise.resolve(null),
+    isManager ? getTeamDeliveryRate() : Promise.resolve(null),
+    // US-026: resumo executivo do portfólio — restrito a admin/director.
+    isDirector ? getExecutiveSummary() : Promise.resolve(null),
+    isDirector ? getSlaRate() : Promise.resolve(null),
+  ]);
 
   const activeProjects = projects.filter((p) => p.status === "ACTIVE");
   const avgProgress =
@@ -241,6 +264,39 @@ export default async function DashboardPage() {
               )}
             </CardContent>
           </Card>
+        </div>
+      )}
+
+      {/* US-026: resumo executivo do portfólio (REL-001) — só admin/director. */}
+      {isDirector && executiveSummary && (
+        <div className="flex flex-col gap-4">
+          <h2 className="text-sm font-semibold text-muted-foreground">Visão executiva do portfólio</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-5">
+            <StatTile label="Projetos ativos" value={executiveSummary.activeProjectsCount} />
+            <StatTile
+              label="Projetos críticos"
+              value={executiveSummary.criticalProjectsCount}
+              accent={executiveSummary.criticalProjectsCount > 0 ? "danger" : undefined}
+            />
+            <StatTile
+              label="% SLA no prazo"
+              value={slaRate?.portfolio === null || slaRate?.portfolio === undefined ? "—" : `${slaRate.portfolio}%`}
+              accent="success"
+            />
+            <StatTile
+              label="Progresso médio do portfólio"
+              value={
+                executiveSummary.avgPortfolioProgress === null
+                  ? "—"
+                  : `${executiveSummary.avgPortfolioProgress}%`
+              }
+            />
+            <StatTile
+              label="Escalações abertas"
+              value={executiveSummary.openEscalationsCount}
+              accent={executiveSummary.openEscalationsCount > 0 ? "danger" : undefined}
+            />
+          </div>
         </div>
       )}
     </div>
