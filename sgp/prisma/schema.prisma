@@ -79,6 +79,8 @@ model User {
   helpRequests       HelpRequest[]
   auditLogs          AuditLog[]
   deadlineChanges    DeadlineChange[]
+  meetingsCreated    Meeting[]        @relation("MeetingCreatedBy")
+  meetingsAsParticipant Meeting[]     @relation("MeetingParticipant")
 }
 
 model Project {
@@ -100,6 +102,7 @@ model Project {
   activities Activity[]
   wins       Win[]
   risks      Risk[]
+  meetings   Meeting[]
 }
 
 model ProjectMember {
@@ -261,14 +264,25 @@ model AuditLog {
 }
 
 model Meeting {
-  id         String      @id @default(cuid())
-  type       MeetingType
-  weekNumber Int
-  year       Int
-  date       DateTime
-  agenda     Json?
-  minutes    String?
-  decisions  Json?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id            String      @id @default(cuid())
+  type          MeetingType
+  weekNumber    Int
+  year          Int
+  date          DateTime
+  agenda        Json?
+  minutes       String?
+  decisions     Json?
+  projectId     String?
+  participantId String?
+  createdById   String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  project     Project? @relation(fields: [projectId], references: [id])
+  participant User?    @relation("MeetingParticipant", fields: [participantId], references: [id])
+  createdBy   User     @relation("MeetingCreatedBy", fields: [createdById], references: [id])
+
+  @@index([projectId, date])
+  @@index([participantId, date])
 }
