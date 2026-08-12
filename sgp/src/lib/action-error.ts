@@ -10,6 +10,8 @@ const EXPOSABLE_MESSAGES = new Set([
   "Não foi possível gerar a pauta agora. Tente novamente.",
   "Não foi possível exportar a pauta agora. Tente novamente.",
   "O texto da decisão é obrigatório",
+  "Não foi possível marcar a notificação como lida",
+  "Não foi possível marcar as notificações como lidas",
 ]);
 
 export function toActionError(error: unknown, fallback: string, context: string) {

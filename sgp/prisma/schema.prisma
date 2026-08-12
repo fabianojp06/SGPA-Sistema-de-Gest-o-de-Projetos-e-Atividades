@@ -81,6 +81,7 @@ model User {
   deadlineChanges    DeadlineChange[]
   meetingsCreated    Meeting[]        @relation("MeetingCreatedBy")
   meetingsAsParticipant Meeting[]     @relation("MeetingParticipant")
+  notifications      Notification[]
 }
 
 model Project {
@@ -285,4 +286,29 @@ model Meeting {
 
   @@index([projectId, date])
   @@index([participantId, date])
+}
+
+enum NotificationType {
+  ACTIVITY_OVERDUE
+  ACTIVITY_DUE_SOON
+  WIN_ESCALATED
+}
+
+// US-050 (Onda 12): notificações in-app, geradas pelos mesmos crons que já
+// disparam email (check-deadlines/check-wins) — nunca uma detecção nova.
+model Notification {
+  id         String           @id @default(cuid())
+  userId     String
+  type       NotificationType
+  title      String
+  body       String
+  entityType String
+  entityId   String
+  link       String
+  read       Boolean          @default(false)
+  createdAt  DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, read])
 }

@@ -4,11 +4,13 @@ import { resend, RESEND_FROM_EMAIL } from "@/lib/resend";
 import { DeadlineAlertEmail } from "@/emails/deadline-alert";
 import { formatDate } from "@/lib/utils";
 import { UPCOMING_DEADLINE_WINDOW_DAYS } from "@/lib/deadlines";
+import { notify } from "@/lib/notify";
 
 const OPEN_STATUSES = ["TODO", "IN_PROGRESS", "BLOCKED"] as const;
 
-// RN-14: falha no envio de e-mail nunca pode interromper o job.
-async function notify(
+// RN-14: falha no envio de e-mail nunca pode interromper o job (nem a
+// gravação da notificação in-app, e vice-versa).
+async function sendDeadlineEmail(
   to: string[],
   activityTitle: string,
   projectName: string,
@@ -36,14 +38,19 @@ async function notify(
   }
 }
 
-async function recipientsFor(projectId: string, assignedToEmail?: string) {
+interface Recipient {
+  id: string;
+  email: string;
+}
+
+async function recipientsFor(projectId: string, assignedTo: Recipient | null): Promise<Recipient[]> {
   const managers = await prisma.projectMember.findMany({
     where: { projectId, role: "gestor" },
     include: { user: true },
   });
-  const emails = new Set(managers.map((m) => m.user.email));
-  if (assignedToEmail) emails.add(assignedToEmail);
-  return Array.from(emails);
+  const byId = new Map<string, Recipient>(managers.map((m) => [m.user.id, m.user]));
+  if (assignedTo) byId.set(assignedTo.id, assignedTo);
+  return Array.from(byId.values());
 }
 
 export async function GET(req: Request) {
@@ -73,13 +80,47 @@ export async function GET(req: Request) {
   ]);
 
   for (const activity of overdue) {
-    const to = await recipientsFor(activity.projectId, activity.assignedTo?.email);
-    await notify(to, activity.title, activity.project.name, activity.dueDate, "overdue");
+    const recipients = await recipientsFor(activity.projectId, activity.assignedTo);
+    await sendDeadlineEmail(
+      recipients.map((r) => r.email),
+      activity.title,
+      activity.project.name,
+      activity.dueDate,
+      "overdue",
+    );
+    for (const recipient of recipients) {
+      await notify({
+        userId: recipient.id,
+        type: "ACTIVITY_OVERDUE",
+        title: "Atividade atrasada",
+        body: `"${activity.title}" (${activity.project.name}) está atrasada desde ${formatDate(activity.dueDate)}.`,
+        entityType: "Activity",
+        entityId: activity.id,
+        link: `/dashboard/projetos/${activity.projectId}`,
+      });
+    }
   }
 
   for (const activity of upcoming) {
-    const to = await recipientsFor(activity.projectId, activity.assignedTo?.email);
-    await notify(to, activity.title, activity.project.name, activity.dueDate, "upcoming");
+    const recipients = await recipientsFor(activity.projectId, activity.assignedTo);
+    await sendDeadlineEmail(
+      recipients.map((r) => r.email),
+      activity.title,
+      activity.project.name,
+      activity.dueDate,
+      "upcoming",
+    );
+    for (const recipient of recipients) {
+      await notify({
+        userId: recipient.id,
+        type: "ACTIVITY_DUE_SOON",
+        title: "Prazo se aproximando",
+        body: `"${activity.title}" (${activity.project.name}) vence em ${formatDate(activity.dueDate)}.`,
+        entityType: "Activity",
+        entityId: activity.id,
+        link: `/dashboard/projetos/${activity.projectId}`,
+      });
+    }
   }
 
   return NextResponse.json({ overdue: overdue.length, upcoming: upcoming.length });
