@@ -21,6 +21,16 @@ interface AgendaContent {
   generatedById: string;
 }
 
+// US-044: item de Meeting.decisions (Json array). ownerId aponta para User
+// (nunca texto livre) e é opcional — nem toda decisão tem responsável formal.
+interface MeetingDecision {
+  id: string;
+  text: string;
+  ownerId: string | null;
+  dueDate: string | null;
+  createdAt: string;
+}
+
 const MEETING_MANAGER_ROLES = ["admin", "director", "coordinator"] as const;
 
 const COLLECTIVE_TYPES = ["DAILY", "WEEKLY", "BIWEEKLY", "MONTHLY"] as const;
@@ -329,6 +339,140 @@ export async function updateMeetingAgenda(input: z.infer<typeof updateAgendaSche
     return {
       success: false as const,
       error: toActionError(error, "Não foi possível salvar a pauta", "updateMeetingAgenda"),
+    };
+  }
+}
+
+const updateMinutesSchema = z.object({
+  meetingId: z.string(),
+  text: z.string(),
+});
+
+// US-044: ata da reunião — texto livre, preenchido depois que ela aconteceu.
+// Mesmo RBAC de quem edita a pauta (coordinator/director/admin).
+export async function updateMeetingMinutes(input: z.infer<typeof updateMinutesSchema>) {
+  try {
+    const user = await requireRole(...MEETING_MANAGER_ROLES);
+    const { meetingId, text } = updateMinutesSchema.parse(input);
+
+    const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: meetingId, deletedAt: null } });
+    if (meeting.projectId) {
+      await assertProjectAccess(user, meeting.projectId);
+    }
+
+    const updated = await prisma.meeting.update({
+      where: { id: meetingId },
+      data: { minutes: text },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "update_minutes",
+      entity: "Meeting",
+      entityId: meetingId,
+      before: meeting.minutes,
+      after: text,
+    });
+
+    revalidatePath(`/dashboard/reunioes/pautas/${meetingId}`);
+    return { success: true as const, meeting: updated };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível salvar a ata", "updateMeetingMinutes"),
+    };
+  }
+}
+
+const addDecisionSchema = z.object({
+  meetingId: z.string(),
+  text: z.string().min(1, "O texto da decisão é obrigatório"),
+  ownerId: z.string().optional(),
+  dueDate: z.coerce.date().optional(),
+});
+
+export async function addMeetingDecision(input: z.infer<typeof addDecisionSchema>) {
+  try {
+    const user = await requireRole(...MEETING_MANAGER_ROLES);
+    const { meetingId, text, ownerId, dueDate } = addDecisionSchema.parse(input);
+
+    const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: meetingId, deletedAt: null } });
+    if (meeting.projectId) {
+      await assertProjectAccess(user, meeting.projectId);
+    }
+
+    const before = (meeting.decisions as unknown as MeetingDecision[] | null) ?? [];
+    const decision: MeetingDecision = {
+      id: crypto.randomUUID(),
+      text,
+      ownerId: ownerId ?? null,
+      dueDate: dueDate ? dueDate.toISOString() : null,
+      createdAt: new Date().toISOString(),
+    };
+    const after = [...before, decision];
+
+    const updated = await prisma.meeting.update({
+      where: { id: meetingId },
+      data: { decisions: after as unknown as Prisma.InputJsonValue },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "add_decision",
+      entity: "Meeting",
+      entityId: meetingId,
+      before: before as unknown as Prisma.InputJsonValue,
+      after: after as unknown as Prisma.InputJsonValue,
+    });
+
+    revalidatePath(`/dashboard/reunioes/pautas/${meetingId}`);
+    return { success: true as const, meeting: updated };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível adicionar a decisão", "addMeetingDecision"),
+    };
+  }
+}
+
+const removeDecisionSchema = z.object({
+  meetingId: z.string(),
+  decisionId: z.string(),
+});
+
+export async function removeMeetingDecision(input: z.infer<typeof removeDecisionSchema>) {
+  try {
+    const user = await requireRole(...MEETING_MANAGER_ROLES);
+    const { meetingId, decisionId } = removeDecisionSchema.parse(input);
+
+    const meeting = await prisma.meeting.findUniqueOrThrow({ where: { id: meetingId, deletedAt: null } });
+    if (meeting.projectId) {
+      await assertProjectAccess(user, meeting.projectId);
+    }
+
+    const before = (meeting.decisions as unknown as MeetingDecision[] | null) ?? [];
+    const after = before.filter((d) => d.id !== decisionId);
+
+    const updated = await prisma.meeting.update({
+      where: { id: meetingId },
+      data: { decisions: after as unknown as Prisma.InputJsonValue },
+    });
+
+    await logAudit({
+      userId: user.id,
+      action: "remove_decision",
+      entity: "Meeting",
+      entityId: meetingId,
+      before: before as unknown as Prisma.InputJsonValue,
+      after: after as unknown as Prisma.InputJsonValue,
+    });
+
+    revalidatePath(`/dashboard/reunioes/pautas/${meetingId}`);
+    return { success: true as const, meeting: updated };
+  } catch (error) {
+    return {
+      success: false as const,
+      error: toActionError(error, "Não foi possível remover a decisão", "removeMeetingDecision"),
     };
   }
 }

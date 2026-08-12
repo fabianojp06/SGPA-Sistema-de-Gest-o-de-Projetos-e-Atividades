@@ -9,6 +9,7 @@ const EXPOSABLE_MESSAGES = new Set([
   "Você não tem acesso a este projeto",
   "Não foi possível gerar a pauta agora. Tente novamente.",
   "Não foi possível exportar a pauta agora. Tente novamente.",
+  "O texto da decisão é obrigatório",
 ]);
 
 export function toActionError(error: unknown, fallback: string, context: string) {

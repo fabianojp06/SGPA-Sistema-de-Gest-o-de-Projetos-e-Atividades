@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { getMeeting } from "@/actions/meetings";
+import { getActiveUsers } from "@/actions/users";
 import { requireDbUser } from "@/lib/auth";
 import { AgendaPanel } from "@/components/meetings/agenda-panel";
+import { MinutesDecisionsPanel } from "@/components/meetings/minutes-decisions-panel";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/utils";
@@ -26,14 +28,25 @@ interface AgendaContent {
   generatedById: string;
 }
 
+interface MeetingDecision {
+  id: string;
+  text: string;
+  ownerId: string | null;
+  dueDate: string | null;
+  createdAt: string;
+}
+
 export default async function MeetingDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const [meeting, user] = await Promise.all([getMeeting(id), requireDbUser()]);
+  const [meeting, user, users] = await Promise.all([getMeeting(id), requireDbUser(), getActiveUsers()]);
 
   if (!meeting) notFound();
 
   const canGenerate =
     MANAGER_ROLES.includes(user.role) && AGENDA_SUPPORTED_TYPES.includes(meeting.type);
+  // US-044: ata/decisões valem para qualquer tipo de reunião (não só
+  // DAILY/WEEKLY) — mesmo RBAC de papel de quem edita a pauta.
+  const canEditMinutes = MANAGER_ROLES.includes(user.role);
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,6 +69,18 @@ export default async function MeetingDetailPage({ params }: { params: Promise<{ 
             meetingId={meeting.id}
             agenda={meeting.agenda as unknown as AgendaContent | null}
             canGenerate={canGenerate}
+          />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardContent>
+          <MinutesDecisionsPanel
+            meetingId={meeting.id}
+            minutes={meeting.minutes}
+            decisions={(meeting.decisions as unknown as MeetingDecision[] | null) ?? []}
+            users={users}
+            canEdit={canEditMinutes}
           />
         </CardContent>
       </Card>
