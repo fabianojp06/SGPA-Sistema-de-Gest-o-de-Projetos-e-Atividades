@@ -4,6 +4,9 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/webhooks(.*)",
+  "/manifest.webmanifest",
+  "/icon(.*)",
+  "/apple-icon(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
