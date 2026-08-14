@@ -1,0 +1,1331 @@
+<title>Manual do Usuário — GiaFlow</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --surface-2: #eef0f3;
+    --text: #12151a;
+    --text-muted: #5b6472;
+    --border: #e2e5ea;
+    --accent: #3557c4;
+    --accent-fill: #4f7eff;
+    --accent-soft: #e8edfc;
+    --success: #157a5c;
+    --success-fill: #2dd4a0;
+    --success-soft: #e2f8f0;
+    --warning: #92590a;
+    --warning-fill: #f5a524;
+    --warning-soft: #fdf1de;
+    --danger: #a52e2a;
+    --danger-fill: #f0544f;
+    --danger-soft: #fce6e5;
+    --radius: 10px;
+    --font-body: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0d0f12;
+      --surface: #15181d;
+      --surface-2: #1b1f26;
+      --text: #e7e9ec;
+      --text-muted: #9aa3af;
+      --border: #262b33;
+      --accent: #7b9dff;
+      --accent-fill: #4f7eff;
+      --accent-soft: #1b2338;
+      --success: #4fe3b8;
+      --success-fill: #2dd4a0;
+      --success-soft: #10241d;
+      --warning: #ffb84d;
+      --warning-fill: #f5a524;
+      --warning-soft: #2a2013;
+      --danger: #ff8a85;
+      --danger-fill: #f0544f;
+      --danger-soft: #2c1614;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #0d0f12;
+    --surface: #15181d;
+    --surface-2: #1b1f26;
+    --text: #e7e9ec;
+    --text-muted: #9aa3af;
+    --border: #262b33;
+    --accent: #7b9dff;
+    --accent-fill: #4f7eff;
+    --accent-soft: #1b2338;
+    --success: #4fe3b8;
+    --success-fill: #2dd4a0;
+    --success-soft: #10241d;
+    --warning: #ffb84d;
+    --warning-fill: #f5a524;
+    --warning-soft: #2a2013;
+    --danger: #ff8a85;
+    --danger-fill: #f0544f;
+    --danger-soft: #2c1614;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  a { color: var(--accent); }
+  a:focus-visible, button:focus-visible, summary:focus-visible {
+    outline: 2px solid var(--accent-fill);
+    outline-offset: 2px;
+  }
+
+  .shell {
+    display: flex;
+    max-width: 1180px;
+    margin: 0 auto;
+    align-items: flex-start;
+  }
+
+  /* ---------- Sidebar TOC ---------- */
+  nav.toc {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    width: 248px;
+    flex-shrink: 0;
+    overflow-y: auto;
+    padding: 32px 20px 32px 28px;
+    border-right: 1px solid var(--border);
+  }
+
+  .toc-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    font-size: 1.05rem;
+    letter-spacing: -0.01em;
+    margin-bottom: 4px;
+  }
+  .toc-brand .dot {
+    width: 9px; height: 9px; border-radius: 50%;
+    background: var(--accent-fill);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .toc-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin: 0 0 28px;
+  }
+
+  .toc-group { margin-bottom: 22px; }
+  .toc-group-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    margin: 0 0 8px;
+  }
+  .toc a {
+    display: block;
+    font-size: 0.86rem;
+    color: var(--text);
+    text-decoration: none;
+    padding: 5px 8px;
+    border-radius: 6px;
+    margin-left: -8px;
+  }
+  .toc a:hover { background: var(--surface-2); }
+
+  /* ---------- Main content ---------- */
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 48px 56px 120px;
+  }
+
+  .doc-header { margin-bottom: 48px; max-width: 640px; }
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin: 0 0 10px;
+  }
+  h1 {
+    font-size: 2.1rem;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+    text-wrap: balance;
+  }
+  .doc-header p { color: var(--text-muted); font-size: 1.02rem; max-width: 58ch; }
+
+  .role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    gap: 12px;
+    margin-top: 24px;
+  }
+  .role-card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+  }
+  .role-card .role-name {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .role-card p { margin: 6px 0 0; font-size: 0.86rem; color: var(--text-muted); }
+
+  section.module {
+    max-width: 720px;
+    margin: 0 0 64px;
+    scroll-margin-top: 24px;
+  }
+  section.module h2 {
+    font-size: 1.5rem;
+    letter-spacing: -0.01em;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  section.module > .module-intro {
+    color: var(--text-muted);
+    margin: 0 0 28px;
+    font-size: 0.98rem;
+  }
+
+  .task {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 14px;
+    padding: 22px 24px 24px;
+    margin-bottom: 20px;
+  }
+  .task h3 {
+    font-size: 1.08rem;
+    margin: 0 0 4px;
+    letter-spacing: -0.01em;
+  }
+  .task .where {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    margin: 0 0 16px;
+  }
+  .task .where b { color: var(--text); font-weight: 600; }
+
+  .task ol.steps {
+    margin: 0 0 16px;
+    padding-left: 1.35em;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .task ol.steps li { padding-left: 4px; }
+  .task ol.steps li::marker {
+    font-family: var(--font-mono);
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  table.fields {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+    margin: 12px 0 16px;
+  }
+  table.fields caption {
+    text-align: left;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+  }
+  table.fields th {
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    padding: 6px 10px 6px 0;
+    font-size: 0.76rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  table.fields td {
+    padding: 8px 10px 8px 0;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  table.fields tr:last-child td { border-bottom: none; }
+  .req { color: var(--danger); font-weight: 600; font-size: 0.75rem; }
+  .opt { color: var(--text-muted); font-size: 0.75rem; }
+
+  .callout {
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.86rem;
+    margin: 10px 0;
+    border: 1px solid transparent;
+  }
+  .callout.warn { background: var(--warning-soft); color: var(--warning); border-color: color-mix(in oklab, var(--warning-fill) 35%, transparent); }
+  .callout.error { background: var(--danger-soft); color: var(--danger); border-color: color-mix(in oklab, var(--danger-fill) 35%, transparent); }
+  .callout.info { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in oklab, var(--accent-fill) 35%, transparent); }
+  .callout strong { display: block; margin-bottom: 2px; font-size: 0.78rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .callout code, .task code, .faq code {
+    font-family: var(--font-mono);
+    background: var(--surface-2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 0.85em;
+  }
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+  }
+  .pill.admin, .pill.director, .pill.coordinator { background: var(--accent-soft); color: var(--accent); }
+  .pill.technician { background: var(--surface-2); color: var(--text-muted); }
+  .pill.all { background: var(--success-soft); color: var(--success); }
+
+  .faq { margin-top: 8px; }
+  .faq details {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 8px;
+    background: var(--surface);
+  }
+  .faq summary {
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.92rem;
+    list-style: none;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::before {
+    content: "+";
+    font-family: var(--font-mono);
+    color: var(--accent);
+    margin-right: 8px;
+    font-weight: 700;
+  }
+  .faq details[open] summary::before { content: "–"; }
+  .faq p { margin: 10px 0 0; color: var(--text-muted); font-size: 0.88rem; }
+
+  .limits-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .limit-item {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 0.88rem;
+  }
+  .limit-item .label {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--warning);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 700;
+  }
+  .limit-item .desc { color: var(--text-muted); }
+  .limit-item .desc b { color: var(--text); font-weight: 600; }
+
+  footer.doc-footer {
+    max-width: 720px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 0.82rem;
+  }
+
+  @media (max-width: 860px) {
+    nav.toc { display: none; }
+    main { padding: 32px 20px 100px; }
+  }
+</style>
+
+<div class="shell">
+  <nav class="toc">
+    <div class="toc-brand"><span class="dot"></span>GiaFlow</div>
+    <p class="toc-sub">Manual do usuário — v3</p>
+
+    <div class="toc-group">
+      <p class="toc-group-label">Começando</p>
+      <a href="#acesso">Acesso ao sistema</a>
+      <a href="#busca-notificacoes">Busca e notificações</a>
+      <a href="#tema">Modo claro e escuro</a>
+      <a href="#instalar-app">Instalar como aplicativo</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Dashboards e relatórios</p>
+      <a href="#dashboard">Dashboard por perfil</a>
+      <a href="#filtros-dashboard">Filtros globais</a>
+      <a href="#gantt">Gantt do projeto</a>
+      <a href="#relatorios">Central de Relatórios</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Projetos</p>
+      <a href="#criar-projeto">Criar e editar projeto</a>
+      <a href="#equipe">Equipe do projeto</a>
+      <a href="#fases">Fases do projeto</a>
+      <a href="#encerrar-projeto">Encerrar ou arquivar</a>
+      <a href="#clonar-projeto">Clonar projeto</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Atividades</p>
+      <a href="#criar-atividade">Criar atividade</a>
+      <a href="#listagem-atividades">Listagem cruzada de atividades</a>
+      <a href="#progresso-status">Progresso e status</a>
+      <a href="#prazo-atividade">Alterar prazo</a>
+      <a href="#dependencia">Dependência entre atividades</a>
+      <a href="#checklist">Checklist e comentários</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Card WIN</p>
+      <a href="#registrar-win">Registrar WIN</a>
+      <a href="#retrospectiva">Retrospectiva</a>
+      <a href="#riscos-ajuda">Riscos e pedidos de ajuda</a>
+      <a href="#win-equipe">Visão da equipe</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Pautas de reunião</p>
+      <a href="#criar-reuniao">Criar uma reunião</a>
+      <a href="#gerar-pauta">Gerar pauta com IA</a>
+      <a href="#ata-decisoes">Ata e decisões</a>
+      <a href="#exportar-pdf">Exportar em PDF</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Administração</p>
+      <a href="#auditoria">Auditoria</a>
+    </div>
+    <div class="toc-group">
+      <p class="toc-group-label">Referência</p>
+      <a href="#limitacoes">Limitações conhecidas</a>
+      <a href="#faq">Perguntas frequentes</a>
+    </div>
+  </nav>
+
+  <main>
+    <header class="doc-header">
+      <p class="eyebrow">Manual do usuário · v3 · atualizado em 14/08/2026</p>
+      <h1>Usando o GiaFlow no dia a dia</h1>
+      <p>
+        O GiaFlow substitui o Card WIN em planilha Excel e centraliza projetos, atividades,
+        o acompanhamento semanal da equipe e a pauta de reunião — agora com dashboards por
+        perfil, relatórios gráficos, pauta gerada por IA, busca global, notificações, listagem
+        cruzada de atividades, modo claro/escuro e instalação como aplicativo. Este manual cobre
+        tudo que já está disponível no sistema hoje — nada aqui descreve uma tela que ainda não
+        existe.
+      </p>
+
+      <div class="role-grid">
+        <div class="role-card">
+          <div class="role-name">Admin</div>
+          <p>Acesso total. Único perfil que gerencia usuários e vê a Auditoria junto com o Diretor.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-name">Director</div>
+          <p>Visão de todos os projetos e WINs da equipe, mesmo sem estar associado a cada um.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-name">Coordinator</div>
+          <p>Cria e gerencia projetos, atividades e equipe — mas só vê os projetos em que está alocado.</p>
+        </div>
+        <div class="role-card">
+          <div class="role-name">Technician</div>
+          <p>Registra WINs, atualiza suas atividades. Só vê os projetos em que foi associado como membro.</p>
+        </div>
+      </div>
+    </header>
+
+    <!-- ACESSO -->
+    <section class="module" id="acesso">
+      <h2>Acesso ao sistema</h2>
+      <p class="module-intro">Login é feito pela tela inicial, sem necessidade de cadastro manual de senha no GiaFlow.</p>
+
+      <div class="task">
+        <h3>Entrar no GiaFlow</h3>
+        <p class="where">Acesse a URL do sistema → tela de login</p>
+        <ol class="steps">
+          <li>Abra o endereço do GiaFlow no navegador.</li>
+          <li>Clique em <b>Entrar</b> e escolha seu método (e-mail/senha ou conta Google, conforme
+            configurado pelo administrador).</li>
+          <li>Na primeira vez que você entra, o sistema cria seu cadastro automaticamente com o
+            perfil <span class="pill technician">technician</span> por padrão.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Meu perfil está errado</strong>
+          Todo mundo entra pela primeira vez como <code>technician</code>. Se seu trabalho exige
+          outro perfil (coordinator, director, admin), peça para um administrador ajustar — isso
+          não é autoatendimento.
+        </div>
+      </div>
+    </section>
+
+    <!-- BUSCA E NOTIFICAÇÕES -->
+    <section class="module" id="busca-notificacoes">
+      <h2>Busca e notificações</h2>
+      <p class="module-intro">Disponíveis na barra superior, em qualquer tela do sistema.</p>
+
+      <div class="task">
+        <h3>Buscar um projeto, atividade ou WIN</h3>
+        <p class="where">Barra superior → campo de busca, ou atalho <b>⌘K</b> (Mac) / <b>Ctrl+K</b> (Windows/Linux)</p>
+        <ol class="steps">
+          <li>Clique no campo de busca ou pressione o atalho — uma janela de busca abre no centro da tela.</li>
+          <li>Digite pelo menos 2 letras do que procura. Os resultados aparecem agrupados por tipo (Projetos, Atividades, WINs).</li>
+          <li>Use as setas <b>↑</b>/<b>↓</b> para navegar e <b>Enter</b> para abrir, ou clique direto no resultado.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Você só encontra o que já teria acesso</strong>
+          A busca nunca mostra um projeto, atividade ou WIN que você não veria normalmente pelas
+          telas do sistema — o mesmo controle de acesso por perfil se aplica aqui.
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>Ver e limpar notificações</h3>
+        <p class="where">Barra superior → ícone de sino</p>
+        <ol class="steps">
+          <li>Clique no sino para ver a lista — notificações não lidas aparecem com uma bolinha ao lado.</li>
+          <li>Clique numa notificação para marcá-la como lida e ir direto ao registro relacionado.</li>
+          <li>Use <b>Marcar todas como lidas</b> para limpar o contador de uma vez.</li>
+        </ol>
+        <table class="fields">
+          <caption>Quando uma notificação é criada</caption>
+          <tr><th>Evento</th><th>Quem recebe</th></tr>
+          <tr><td>Atividade atrasada</td><td>Responsável pela atividade e gestores do projeto.</td></tr>
+          <tr><td>Atividade com prazo próximo (3 dias)</td><td>Responsável pela atividade e gestores do projeto.</td></tr>
+          <tr><td>WIN escalado (sem conclusão por 3+ semanas)</td><td>Dono do WIN e gestores do projeto.</td></tr>
+        </table>
+        <div class="callout info">
+          <strong>Mesmo aviso, dois canais</strong>
+          Esses mesmos três eventos também disparam um e-mail — a notificação no sino é o mesmo
+          aviso, só que dentro do sistema.
+        </div>
+      </div>
+    </section>
+
+    <!-- TEMA -->
+    <section class="module" id="tema">
+      <h2>Modo claro e escuro</h2>
+      <p class="module-intro">O GiaFlow abre no modo escuro por padrão, mas você pode alternar para o modo claro a qualquer momento.</p>
+
+      <div class="task">
+        <h3>Alternar o tema</h3>
+        <p class="where">Barra superior → ícone de sol/lua (ao lado do sino de notificações)</p>
+        <ol class="steps">
+          <li>Clique no ícone — a lua indica modo escuro ativo, o sol indica modo claro ativo.</li>
+          <li>A troca é instantânea, sem recarregar a página.</li>
+          <li>Sua escolha fica salva neste navegador — a próxima vez que você abrir o GiaFlow nele, o tema escolhido continua o mesmo.</li>
+        </ol>
+        <div class="callout info">
+          <strong>É por navegador, não por conta</strong>
+          A preferência de tema é salva localmente no navegador que você usou para escolher —
+          trocar de computador ou navegador volta ao modo escuro padrão até você alternar de novo.
+        </div>
+      </div>
+    </section>
+
+    <!-- PWA -->
+    <section class="module" id="instalar-app">
+      <h2>Instalar como aplicativo</h2>
+      <p class="module-intro">O GiaFlow pode ser instalado como um app, com ícone próprio e sem a barra de endereço do navegador.</p>
+
+      <div class="task">
+        <h3>Instalar no Android ou computador (Chrome/Edge)</h3>
+        <p class="where">Barra de endereço do navegador → ícone de instalação</p>
+        <ol class="steps">
+          <li>Abra o GiaFlow no Chrome ou Edge.</li>
+          <li>O navegador mostra automaticamente um ícone de instalação na barra de endereço (ou um banner na parte inferior da tela, no celular).</li>
+          <li>Clique em <b>Instalar</b>. O GiaFlow passa a abrir como um app separado, com ícone na tela inicial ou na área de trabalho.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Não existe botão de instalar dentro do sistema</strong>
+          A instalação depende inteiramente do prompt nativo do navegador — o GiaFlow não tem um
+          botão próprio de "instalar app" nas telas.
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>Instalar no iPhone/iPad (Safari)</h3>
+        <p class="where">Safari → botão Compartilhar → Adicionar à Tela de Início</p>
+        <ol class="steps">
+          <li>Abra o GiaFlow no Safari (o iOS não oferece instalação automática, precisa ser feito manualmente).</li>
+          <li>Toque no ícone de <b>Compartilhar</b> (o quadrado com a seta para cima).</li>
+          <li>Escolha <b>Adicionar à Tela de Início</b> e confirme.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- DASHBOARD -->
+    <section class="module" id="dashboard">
+      <h2>Dashboard por perfil</h2>
+      <p class="module-intro">Primeira tela depois do login. O que aparece muda de acordo com o seu perfil.</p>
+
+      <div class="task">
+        <h3>Técnico</h3>
+        <p class="where">Menu lateral → <b>Dashboard</b></p>
+        <table class="fields">
+          <tr><th>Bloco</th><th>O que mostra</th></tr>
+          <tr><td>Minhas atividades atrasadas</td><td>Só as atividades atribuídas a você.</td></tr>
+          <tr><td>Prazo próximo</td><td>Suas atividades que vencem nos próximos 3 dias.</td></tr>
+          <tr><td>Contagem por status</td><td>Quantas atividades suas estão em cada status.</td></tr>
+          <tr><td>Meus WINs da semana</td><td>—</td></tr>
+        </table>
+      </div>
+
+      <div class="task">
+        <h3>Coordenador</h3>
+        <p class="where">Menu lateral → <b>Dashboard</b></p>
+        <table class="fields">
+          <tr><th>Bloco</th><th>O que mostra</th></tr>
+          <tr><td>Projetos sob gestão</td><td>Projetos onde você é membro da equipe.</td></tr>
+          <tr><td>Índice de entrega no prazo</td><td>% de atividades concluídas dentro do prazo, por colaborador da sua equipe.</td></tr>
+          <tr><td>Atividades da equipe atrasadas/próximas</td><td>Visão de todos os projetos, não só os seus.</td></tr>
+          <tr><td>WINs da equipe</td><td>Card WIN de todos os colaboradores na semana.</td></tr>
+        </table>
+      </div>
+
+      <div class="task">
+        <h3>Diretor e Admin</h3>
+        <p class="where">Menu lateral → <b>Dashboard</b> → seção <b>Visão executiva do portfólio</b></p>
+        <table class="fields">
+          <tr><th>Bloco</th><th>O que mostra</th></tr>
+          <tr><td>Projetos ativos e progresso médio</td><td>Portfólio inteiro, não só onde você é membro.</td></tr>
+          <tr><td>Projetos críticos</td><td>Projetos com risco Alto ou Crítico em aberto.</td></tr>
+          <tr><td>Escalações abertas</td><td>WINs escalados que ainda não foram concluídos.</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- FILTROS -->
+    <section class="module" id="filtros-dashboard">
+      <h2>Filtros globais</h2>
+      <p class="module-intro">Disponíveis no topo do Dashboard — sempre combinam com o que você já tem acesso, nunca ampliam.</p>
+      <div class="task">
+        <h3>Filtrar o Dashboard</h3>
+        <p class="where">Dashboard → barra de filtros (Período, Projeto, Área, Status, Responsável)</p>
+        <ol class="steps">
+          <li>Escolha um ou mais filtros — eles se combinam entre si (ex: Projeto "PRJ-001" + Status "Bloqueada").</li>
+          <li>Os blocos da tela recalculam automaticamente.</li>
+          <li>Clique em <b>Limpar filtros</b> para voltar à visão padrão.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Filtro nunca amplia o que você vê</strong>
+          Se você tentar filtrar por um projeto fora do seu escopo (ex: um technician tentando ver
+          um projeto onde não é membro), o resultado vem vazio — o filtro nunca contorna a
+          permissão de acesso.
+        </div>
+      </div>
+    </section>
+
+    <!-- GANTT -->
+    <section class="module" id="gantt">
+      <h2>Gantt do projeto</h2>
+      <p class="module-intro">Linha do tempo visual das atividades de um projeto.</p>
+      <div class="task">
+        <h3>Abrir o Gantt</h3>
+        <p class="where">Projetos → abra o projeto → botão <b>Ver Gantt</b></p>
+        <ol class="steps">
+          <li>Cada atividade aparece como uma barra, proporcional à data de início e prazo dela.</li>
+          <li>Atividades bloqueadas por uma predecessora ainda não iniciada aparecem sinalizadas visualmente.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- RELATÓRIOS -->
+    <section class="module" id="relatorios">
+      <h2>Central de Relatórios</h2>
+      <p class="module-intro">
+        Indicadores em gráfico — exclusivo para <span class="pill admin">admin</span>
+        <span class="pill director">director</span> <span class="pill coordinator">coordinator</span>.
+      </p>
+      <div class="task">
+        <h3>Ver os gráficos</h3>
+        <p class="where">Menu lateral → <b>Relatórios</b></p>
+        <table class="fields">
+          <caption>Portfólio e equipe</caption>
+          <tr><th>Gráfico</th><th>O que mostra</th></tr>
+          <tr><td>SLA de entrega por projeto</td><td>% de atividades concluídas dentro do prazo, projeto a projeto.</td></tr>
+          <tr><td>Carga de trabalho por colaborador</td><td>Atividades ativas por pessoa, colorido pela carga relativa ao grupo (verde/âmbar/vermelho).</td></tr>
+        </table>
+        <table class="fields">
+          <caption>Pautas e reuniões</caption>
+          <tr><th>Gráfico</th><th>O que mostra</th></tr>
+          <tr><td>Reuniões por tipo</td><td>Quantas Daily, Semanal, Quinzenal, Mensal e One-on-One foram criadas.</td></tr>
+          <tr><td>WINs escalados por semana</td><td>Evolução de itens escalados (RN-09) ao longo do tempo.</td></tr>
+          <tr><td>Decisões por projeto</td><td>Quantas decisões de reunião foram registradas em cada projeto.</td></tr>
+          <tr><td>Adoção da pauta por IA</td><td>% de reuniões que já têm uma pauta gerada.</td></tr>
+        </table>
+        <p class="where">Os mesmos filtros do Dashboard (período, projeto, área) se aplicam aqui, mais um filtro de <b>tipo de reunião</b> exclusivo desta tela.</p>
+      </div>
+    </section>
+
+    <!-- PROJETOS -->
+    <section class="module" id="criar-projeto">
+      <h2>Projetos</h2>
+      <p class="module-intro">
+        <span class="pill admin">admin</span> <span class="pill director">director</span>
+        <span class="pill coordinator">coordinator</span> criam e editam projetos. Technician só
+        visualiza os projetos em que foi associado como membro.
+      </p>
+
+      <div class="task">
+        <h3>Criar um projeto</h3>
+        <p class="where">Menu lateral → <b>Projetos</b> → botão <b>Novo projeto</b></p>
+        <ol class="steps">
+          <li>Clique em <b>Novo projeto</b>.</li>
+          <li>Preencha os campos abaixo.</li>
+          <li>Clique em <b>Criar</b>. Uma mensagem de confirmação aparece e o projeto entra na lista.</li>
+        </ol>
+        <table class="fields">
+          <caption>Campos do formulário</caption>
+          <tr><th>Campo</th><th>Obrigatório</th><th>Regra</th></tr>
+          <tr><td>Código</td><td><span class="req">Sim</span></td><td>Identificador único, ex: <code>PRJ-001</code>. Não pode repetir um código já existente.</td></tr>
+          <tr><td>Área</td><td><span class="req">Sim</span></td><td>Setor/área responsável.</td></tr>
+          <tr><td>Nome</td><td><span class="req">Sim</span></td><td>Texto livre.</td></tr>
+          <tr><td>Descrição</td><td><span class="opt">Opcional</span></td><td>—</td></tr>
+          <tr><td>Início</td><td><span class="req">Sim</span></td><td>Data de início do projeto.</td></tr>
+          <tr><td>Prazo final</td><td><span class="req">Sim</span></td><td>Toda atividade e fase criada dentro deste projeto precisa vencer <b>até</b> esta data.</td></tr>
+        </table>
+        <div class="callout error">
+          <strong>Erro comum</strong>
+          Se você não tem perfil coordinator ou superior, o sistema responde
+          <code>Sem permissão para executar esta ação</code> e nada é criado.
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>Editar um projeto</h3>
+        <p class="where">Projetos → clique no código do projeto → tela do projeto</p>
+        <ol class="steps">
+          <li>Na lista de projetos, clique no código (ex: <code>PRJ-001</code>) para abrir os detalhes.</li>
+          <li>No card <b>Editar projeto</b>, altere nome, área, descrição ou datas.</li>
+          <li>Status aqui só permite <b>Ativo</b> ou <b>Pausado</b> — para encerrar o projeto, veja
+            <a href="#encerrar-projeto">Encerrar ou arquivar</a>.</li>
+          <li>Clique em <b>Salvar alterações</b>.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Toda edição fica registrada</strong>
+          Cada alteração salva um registro de auditoria com o que mudou, quem mudou e quando —
+          visível para admin/director em <a href="#auditoria">Auditoria</a>.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="equipe">
+      <h2 id="equipe-title">Equipe do projeto</h2>
+      <p class="module-intro">
+        Antes de um coordinator ou technician conseguir ver um projeto, alguém com permissão
+        precisa associá-lo como membro. Sem isso, o projeto simplesmente não aparece na lista dele.
+      </p>
+
+      <div class="task">
+        <h3>Associar um membro</h3>
+        <p class="where">Projetos → abra o projeto → card <b>Equipe</b> → botão <b>Associar</b></p>
+        <ol class="steps">
+          <li>Escolha o usuário na lista (só aparecem usuários que ainda não fazem parte da equipe).</li>
+          <li>Escolha o papel: <b>Gestor</b>, <b>Membro</b> ou <b>Somente leitura</b>.</li>
+          <li>Clique em <b>Associar</b>. O nome aparece imediatamente na lista da equipe.</li>
+        </ol>
+        <div class="callout warn">
+          <strong>Isso é obrigatório</strong>
+          Se um coordinator ou technician relatar que "o projeto sumiu" ou "nunca apareceu", o
+          primeiro passo é checar se ele foi associado aqui.
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>Remover um membro</h3>
+        <p class="where">Card <b>Equipe</b> → ícone <b>×</b> ao lado do nome</p>
+        <ol class="steps">
+          <li>Clique no <b>×</b> ao lado da pessoa que deseja remover.</li>
+          <li>A remoção é imediata — a pessoa deixa de ver este projeto no próximo acesso.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="module" id="fases">
+      <h2>Fases do projeto</h2>
+      <p class="module-intro">Etapas/marcos com datas próprias, usadas para organizar o cronograma dentro do projeto.</p>
+
+      <div class="task">
+        <h3>Criar uma fase</h3>
+        <p class="where">Projetos → abra o projeto → card <b>Fases</b> → botão <b>Nova fase</b></p>
+        <ol class="steps">
+          <li>Informe o nome da fase, data de início e data de fim.</li>
+          <li>Clique em <b>Criar</b>.</li>
+        </ol>
+        <div class="callout error">
+          <strong>Erro possível</strong>
+          <code>O prazo da fase não pode ser posterior ao prazo final do projeto</code> — ajuste a
+          data de fim da fase para não ultrapassar o prazo final do projeto.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="encerrar-projeto">
+      <h2>Encerrar ou arquivar um projeto</h2>
+      <p class="module-intro">
+        Diferente de pausar, encerrar é uma ação definitiva e por isso exige justificativa — fica
+        registrada permanentemente na auditoria.
+      </p>
+
+      <div class="task">
+        <h3>Encerrar/arquivar/cancelar</h3>
+        <p class="where">Projetos → abra o projeto → botão vermelho <b>Encerrar projeto</b></p>
+        <ol class="steps">
+          <li>Clique em <b>Encerrar projeto</b> (canto superior direito do card de edição).</li>
+          <li>Escolha o novo status: <b>Concluído</b>, <b>Arquivado</b> ou <b>Cancelado</b>.</li>
+          <li>Escreva a justificativa — este campo é obrigatório.</li>
+          <li>Clique em <b>Confirmar encerramento</b>.</li>
+        </ol>
+        <div class="callout warn">
+          <strong>Não tem volta pela tela</strong>
+          Depois de encerrado, o status vira somente-leitura na tela de edição — não existe botão
+          para reabrir um projeto encerrado. Se isso for necessário, precisa de intervenção direta
+          no banco pelo administrador técnico.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="clonar-projeto">
+      <h2>Clonar um projeto</h2>
+      <p class="module-intro">Útil quando um novo projeto segue a mesma estrutura de um já existente.</p>
+
+      <div class="task">
+        <h3>Clonar como modelo</h3>
+        <p class="where">Projetos → ícone de cópia na linha do projeto</p>
+        <ol class="steps">
+          <li>Na lista de projetos, clique no ícone de cópia ao lado do projeto desejado.</li>
+          <li>Informe o código do novo projeto (não pode repetir um já existente) e as novas datas de início/fim.</li>
+          <li>Clique em <b>Clonar</b>.</li>
+        </ol>
+        <table class="fields">
+          <tr><th>O que é copiado</th><th>O que <b>não</b> é copiado</th></tr>
+          <tr>
+            <td>Nome (com "(cópia)" no final), descrição, área, fases</td>
+            <td>Atividades, equipe associada, histórico</td>
+          </tr>
+        </table>
+      </div>
+    </section>
+
+    <!-- ATIVIDADES -->
+    <section class="module" id="criar-atividade">
+      <h2>Atividades</h2>
+      <p class="module-intro">Toda atividade pertence a um projeto e aparece na tela de detalhes dele.</p>
+
+      <div class="task">
+        <h3>Criar uma atividade</h3>
+        <p class="where">Projetos → abra o projeto → card <b>Atividades</b> → botão <b>Nova atividade</b></p>
+        <ol class="steps">
+          <li>Preencha título e, se quiser, descrição.</li>
+          <li>Escolha um responsável (opcional).</li>
+          <li>Escolha uma atividade predecessora, se esta depender de outra terminar antes (opcional — veja <a href="#dependencia">Dependência entre atividades</a>).</li>
+          <li>Defina o prazo.</li>
+          <li>Clique em <b>Criar</b>.</li>
+        </ol>
+        <div class="callout error">
+          <strong>Erro possível</strong>
+          <code>O prazo da atividade não pode ser posterior ao prazo final do projeto</code> — o
+          prazo da atividade nunca pode passar do prazo final do projeto-pai.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="listagem-atividades">
+      <h2>Listagem cruzada de atividades</h2>
+      <p class="module-intro">Uma visão de atividades que atravessa vários projetos ao mesmo tempo — diferente da lista de atividades dentro de um único projeto.</p>
+
+      <div class="task">
+        <h3>Ver atividades de vários projetos juntas</h3>
+        <p class="where">Menu lateral → <b>Atividades</b></p>
+        <ol class="steps">
+          <li>A tabela já vem ordenada por prazo, do mais próximo para o mais distante.</li>
+          <li>Use os filtros no topo: Período (7/30/90 dias), Projeto, Área, Status e, se seu perfil
+            permitir, Responsável.</li>
+          <li>A coluna <b>Projeto</b> mostra de qual projeto cada atividade é — é isso que
+            diferencia esta tela da lista de atividades de dentro de um projeto específico.</li>
+        </ol>
+        <table class="fields">
+          <tr><th>Perfil</th><th>O que vê</th></tr>
+          <tr><td><span class="pill admin">admin</span> <span class="pill director">director</span> <span class="pill coordinator">coordinator</span></td><td>Atividades de todos os projetos do portfólio, com filtro de Responsável disponível.</td></tr>
+          <tr><td><span class="pill technician">technician</span></td><td>Só as próprias atividades, mas reunidas de todos os projetos em que participa — sem o filtro de Responsável.</td></tr>
+        </table>
+        <div class="callout info">
+          <strong>Sub-atividades não aparecem aqui</strong>
+          Assim como na lista de atividades dentro do projeto, itens de checklist/sub-atividade
+          não entram nesta listagem — só atividades "de primeiro nível".
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="progresso-status">
+      <h2 id="progresso-status-title">Progresso e status</h2>
+      <p class="module-intro">Editados direto na linha da atividade, sem precisar abrir outra tela.</p>
+
+      <div class="task">
+        <h3>Atualizar o progresso (%)</h3>
+        <p class="where">Tabela de Atividades → coluna <b>Progresso</b></p>
+        <ol class="steps">
+          <li>Clique no campo numérico e digite um valor de 0 a 100.</li>
+          <li>Clique fora do campo — a mudança é salva automaticamente.</li>
+        </ol>
+      </div>
+
+      <div class="task">
+        <h3>Mudar o status</h3>
+        <p class="where">Tabela de Atividades → coluna <b>Status</b></p>
+        <table class="fields">
+          <tr><th>Status</th><th>Significado</th></tr>
+          <tr><td>A Fazer</td><td>Ainda não iniciada.</td></tr>
+          <tr><td>Em Andamento</td><td>Em execução.</td></tr>
+          <tr><td>Concluída</td><td>Só pode ser marcada se o progresso estiver em 100%.</td></tr>
+          <tr><td>Bloqueada</td><td>Parada por algum impedimento.</td></tr>
+          <tr><td>Cancelada</td><td>Não será mais executada.</td></tr>
+        </table>
+        <div class="callout error">
+          <strong>Bloqueio comum #1</strong>
+          <code>Atividade só pode ser concluída com progresso em 100%</code> — suba o progresso
+          para 100 antes de marcar como Concluída.
+        </div>
+        <div class="callout error">
+          <strong>Bloqueio comum #2</strong>
+          <code>Atividade predecessora ("Nome") ainda não foi iniciada</code> — veja
+          <a href="#dependencia">Dependência entre atividades</a>.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="prazo-atividade">
+      <h2>Alterar o prazo de uma atividade</h2>
+      <p class="module-intro">
+        Diferente do progresso/status, mudar o prazo exige justificativa e é restrito a
+        <span class="pill admin">admin</span> <span class="pill director">director</span>
+        <span class="pill coordinator">coordinator</span>.
+      </p>
+      <div class="task">
+        <h3>Registrar novo prazo com justificativa</h3>
+        <p class="where">Detalhe da atividade → alteração de prazo (disponível para quem gerencia o projeto)</p>
+        <ol class="steps">
+          <li>Informe a nova data.</li>
+          <li>Escreva o motivo da mudança — campo obrigatório.</li>
+          <li>Confirme. O prazo antigo, o novo e o motivo ficam salvos no histórico da atividade.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Por que isso é rígido</strong>
+          Adiar um prazo sem explicação é a principal causa de atraso não visível para a
+          liderança. Por isso a justificativa é obrigatória e o histórico completo (data antiga,
+          nova, motivo, quem mudou e quando) fica registrado.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="dependencia">
+      <h2>Dependência entre atividades</h2>
+      <p class="module-intro">Uma atividade pode depender de outra terminar primeiro.</p>
+
+      <div class="task">
+        <h3>Como funciona</h3>
+        <ol class="steps">
+          <li>Ao criar a atividade, escolha uma <b>Predecessora</b> na lista de atividades já
+            existentes no projeto.</li>
+          <li>Enquanto a predecessora estiver com status <b>A Fazer</b>, a atividade dependente não
+            pode sair de <b>A Fazer</b> — o sistema bloqueia a tentativa.</li>
+          <li>Assim que a predecessora avançar para qualquer outro status, a dependente é liberada.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="module" id="checklist">
+      <h2>Checklist, comentários e anexos</h2>
+      <p class="module-intro">Cada atividade tem uma tela de detalhes com três seções.</p>
+
+      <div class="task">
+        <h3>Abrir os detalhes de uma atividade</h3>
+        <p class="where">Tabela de Atividades → ícone de lista (☑) na última coluna</p>
+      </div>
+
+      <div class="task">
+        <h3>Checklist (sub-atividades)</h3>
+        <ol class="steps">
+          <li>Digite o texto do item e clique no <b>+</b>.</li>
+          <li>Marque a caixa quando o item estiver concluído — desmarque para reabrir.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Não conta no progresso do projeto</strong>
+          Itens de checklist são independentes do campo de progresso (%) da atividade principal —
+          marcar itens não move o progresso automaticamente.
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>Comentários</h3>
+        <ol class="steps">
+          <li>Escreva o comentário na caixa de texto.</li>
+          <li>Clique em <b>Comentar</b>. O comentário aparece com o nome de quem escreveu.</li>
+        </ol>
+      </div>
+
+      <div class="task">
+        <h3>Anexos</h3>
+        <ol class="steps">
+          <li>Informe um nome para o anexo e o link (URL).</li>
+          <li>Clique em <b>Anexar</b>.</li>
+        </ol>
+        <div class="callout warn">
+          <strong>Só link, não é upload de arquivo</strong>
+          O GiaFlow ainda não tem upload de arquivo binário. Suba o arquivo em algum lugar
+          acessível ao time (SharePoint, Drive etc.) e cole o link aqui.
+        </div>
+      </div>
+    </section>
+
+    <!-- CARD WIN -->
+    <section class="module" id="registrar-win">
+      <h2>Card WIN</h2>
+      <p class="module-intro">
+        Substitui a planilha semanal. Todo mundo, em qualquer perfil, pode registrar WINs, riscos
+        e pedidos de ajuda.
+      </p>
+
+      <div class="task">
+        <h3>Registrar um WIN da semana</h3>
+        <p class="where">Menu lateral → <b>Meus WINs</b> → botão <b>Registrar WIN</b></p>
+        <ol class="steps">
+          <li>Escreva o título (o que você entregou ou está fazendo).</li>
+          <li>Informe quem está te apoiando, se houver (opcional).</li>
+          <li>Vincule a um projeto cadastrado, se fizer sentido (opcional).</li>
+          <li>Defina o prazo.</li>
+          <li>Clique em <b>Salvar</b>.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Sem limite de quantidade</strong>
+          Você pode registrar quantos WINs quiser na mesma semana.
+        </div>
+      </div>
+
+      <div class="task">
+        <h3>Editar ou excluir um WIN</h3>
+        <p class="where">Meus WINs → ícone de lápis na linha do WIN</p>
+        <ol class="steps">
+          <li>Clique no lápis ao lado do WIN.</li>
+          <li>Altere título, suporte, projeto vinculado, prazo ou status — ou clique em
+            <b>Excluir</b> (pede confirmação).</li>
+        </ol>
+        <div class="callout info">
+          <strong>Quem pode editar o WIN de outra pessoa</strong>
+          Só o dono do WIN, ou alguém <span class="pill admin">admin</span>
+          <span class="pill director">director</span> <span class="pill coordinator">coordinator</span>.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="retrospectiva">
+      <h2>Retrospectiva da semana anterior</h2>
+      <p class="module-intro">Aparece automaticamente, sem precisar buscar nada.</p>
+      <div class="task">
+        <h3>Ver o que foi registrado na semana passada</h3>
+        <p class="where">Meus WINs → card <b>Retrospectiva — semana anterior</b></p>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">
+          Essa lista é somente leitura — serve para revisar antes de planejar a semana atual.
+        </p>
+      </div>
+    </section>
+
+    <section class="module" id="riscos-ajuda">
+      <h2>Riscos e pedidos de ajuda</h2>
+
+      <div class="task">
+        <h3>Registrar um alerta de risco</h3>
+        <p class="where">Meus WINs → card <b>Alertas de risco abertos</b> → botão <b>Registrar risco</b></p>
+        <table class="fields">
+          <tr><th>Campo</th><th>Obrigatório</th><th>Regra</th></tr>
+          <tr><td>Título</td><td><span class="req">Sim</span></td><td>—</td></tr>
+          <tr><td>Descrição</td><td><span class="req">Sim</span></td><td>Explique a ameaça.</td></tr>
+          <tr><td>Nível</td><td><span class="req">Sim</span></td><td>Baixo, Médio, Alto ou Crítico.</td></tr>
+          <tr><td>Prazo</td><td><span class="opt">Opcional</span></td><td>—</td></tr>
+        </table>
+      </div>
+
+      <div class="task">
+        <h3>Registrar um pedido de ajuda</h3>
+        <p class="where">Meus WINs → card <b>Pedidos de ajuda em aberto</b> → botão <b>Pedido de ajuda</b></p>
+        <table class="fields">
+          <tr><th>Campo</th><th>Obrigatório</th><th>Regra</th></tr>
+          <tr><td>Destinatário</td><td><span class="req">Sim</span></td><td>Quem precisa resolver ou responder.</td></tr>
+          <tr><td>Descrição</td><td><span class="req">Sim</span></td><td>—</td></tr>
+          <tr><td>Prazo de resposta</td><td><span class="opt">Opcional</span></td><td>—</td></tr>
+        </table>
+      </div>
+    </section>
+
+    <section class="module" id="win-equipe">
+      <h2>Visão da equipe (gestores)</h2>
+      <p class="module-intro">
+        Exclusivo para <span class="pill admin">admin</span> <span class="pill director">director</span>
+        <span class="pill coordinator">coordinator</span> — technician não vê esta seção.
+      </p>
+      <div class="task">
+        <h3>Ver os WINs de todo mundo na semana</h3>
+        <p class="where">Meus WINs → card <b>Card WIN da equipe — semana atual</b> (aparece só para quem tem permissão)</p>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin:0;">
+          Lista consolidada com nome do colaborador, título do WIN, projeto vinculado, prazo e status.
+        </p>
+      </div>
+    </section>
+
+    <!-- PAUTAS DE REUNIÃO -->
+    <section class="module" id="criar-reuniao">
+      <h2>Pautas de reunião</h2>
+      <p class="module-intro">
+        <span class="pill admin">admin</span> <span class="pill director">director</span>
+        <span class="pill coordinator">coordinator</span> criam reunião e gerenciam a pauta.
+        Quem só tem acesso de leitura ao projeto/reunião consegue ver a pauta, ata e decisões,
+        mas não editar.
+      </p>
+
+      <div class="task">
+        <h3>Criar uma reunião</h3>
+        <p class="where">Menu lateral → <b>Pautas</b> → botão <b>Nova reunião</b></p>
+        <ol class="steps">
+          <li>Escolha o tipo: <b>Daily</b>, <b>Semanal</b>, <b>Quinzenal</b>, <b>Mensal</b> ou <b>One-on-One</b>.</li>
+          <li>Para os quatro primeiros tipos, escolha o <b>projeto</b>. Para One-on-One, escolha o
+            <b>colaborador</b> — esse tipo não tem projeto associado.</li>
+          <li>Defina a data.</li>
+          <li>Clique em <b>Salvar</b>. A reunião aparece na listagem.</li>
+        </ol>
+        <div class="callout error">
+          <strong>Erro possível</strong>
+          <code>Selecione o projeto desta reunião</code> ou <code>Selecione o participante desta
+          reunião One-on-One</code> — o vínculo (projeto ou colaborador, nunca os dois) é
+          obrigatório.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="gerar-pauta">
+      <h2 id="gerar-pauta-title">Gerar pauta com IA</h2>
+      <p class="module-intro">A pauta é gerada a partir dos dados reais do sistema — nunca inventa informação.</p>
+
+      <div class="task">
+        <h3>Gerar a pauta</h3>
+        <p class="where">Pautas → abra a reunião → botão <b>Gerar pauta com IA</b></p>
+        <ol class="steps">
+          <li>Clique em <b>Gerar pauta com IA</b>. Isso pode levar alguns segundos.</li>
+          <li>O texto aparece numa caixa editável — revise e ajuste o que precisar antes da reunião.</li>
+          <li>Clique em <b>Salvar pauta</b> pra guardar suas edições.</li>
+        </ol>
+        <table class="fields">
+          <caption>O que entra em cada tipo de pauta</caption>
+          <tr><th>Tipo</th><th>Fonte dos dados</th></tr>
+          <tr><td>Daily</td><td>O que mudou (WINs, riscos, pedidos de ajuda) desde a última Daily do projeto.</td></tr>
+          <tr><td>Semanal</td><td>WINs da semana, riscos abertos, pedidos de ajuda pendentes — WINs escalados em destaque.</td></tr>
+          <tr><td>Quinzenal</td><td>Foco nos WINs escalados (parados há 3+ semanas) — é a reunião de decisão sobre itens travados.</td></tr>
+          <tr><td>Mensal</td><td>WINs escalados do mês, mais progresso e SLA de entrega do projeto.</td></tr>
+          <tr><td>One-on-One</td><td>WINs, riscos e pedidos de ajuda do colaborador nas últimas 2 semanas.</td></tr>
+        </table>
+        <div class="callout warn">
+          <strong>Gerar de novo substitui a pauta atual</strong>
+          Se a reunião já tem uma pauta gerada, clicar em gerar novamente pede confirmação — o
+          texto anterior é sobrescrito (se você editou algo manualmente, salve ou copie antes).
+        </div>
+        <div class="callout error">
+          <strong>Erro possível</strong>
+          <code>Não foi possível gerar a pauta agora. Tente novamente.</code> — falha temporária
+          na geração; nenhuma pauta é salva parcialmente, é seguro tentar de novo.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="ata-decisoes">
+      <h2>Ata e decisões</h2>
+      <p class="module-intro">Preenchidas depois que a reunião acontece — diferente da pauta, que é gerada antes.</p>
+
+      <div class="task">
+        <h3>Registrar a ata</h3>
+        <p class="where">Pautas → abra a reunião → seção <b>Ata</b></p>
+        <ol class="steps">
+          <li>Escreva o que foi discutido na caixa de texto.</li>
+          <li>Clique em <b>Salvar ata</b>. Pode ser editada quantas vezes for preciso depois.</li>
+        </ol>
+      </div>
+
+      <div class="task">
+        <h3>Registrar uma decisão</h3>
+        <p class="where">Pautas → abra a reunião → seção <b>Decisões</b></p>
+        <ol class="steps">
+          <li>Escreva o texto da decisão.</li>
+          <li>Escolha um responsável (opcional) e um prazo (opcional).</li>
+          <li>Clique em <b>Adicionar decisão</b>. Ela aparece na lista, com responsável e prazo se preenchidos.</li>
+          <li>Para remover, clique no ícone de lixeira ao lado da decisão.</li>
+        </ol>
+        <div class="callout info">
+          <strong>Serve como plano de ação</strong>
+          Uma decisão com responsável e prazo é o jeito do sistema de rastrear "quem ficou de
+          fazer o quê" depois da reunião — principalmente nas pautas Quinzenal e Mensal, que
+          trazem os itens escalados pra decisão.
+        </div>
+      </div>
+    </section>
+
+    <section class="module" id="exportar-pdf">
+      <h2>Exportar a pauta em PDF</h2>
+      <p class="module-intro">Pra levar impressa ou projetada na reunião.</p>
+      <div class="task">
+        <h3>Baixar o PDF</h3>
+        <p class="where">Pautas → abra a reunião → botão <b>Exportar PDF</b> (ao lado do botão de gerar pauta)</p>
+        <ol class="steps">
+          <li>O botão só fica disponível depois que uma pauta foi gerada.</li>
+          <li>Clique nele — o download começa automaticamente, com o cabeçalho (projeto/colaborador, tipo, data e quem gerou) e o corpo da pauta.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- AUDITORIA -->
+    <section class="module" id="auditoria">
+      <h2>Auditoria</h2>
+      <p class="module-intro">
+        Trilha de tudo que foi criado, editado ou excluído no sistema — visível só para
+        <span class="pill admin">admin</span> <span class="pill director">director</span>.
+      </p>
+      <div class="task">
+        <h3>Consultar o histórico</h3>
+        <p class="where">Menu lateral → <b>Auditoria</b> (link só aparece para admin/director)</p>
+        <p style="color:var(--text-muted); font-size:0.9rem; margin:0 0 8px;">
+          Mostra as últimas 200 ações: quando aconteceu, quem fez, que tipo de ação (criar, editar,
+          excluir, encerrar, comentar…) e em qual registro.
+        </p>
+        <div class="callout info">
+          <strong>Não pode ser apagado</strong>
+          Nenhum registro de auditoria pode ser editado ou removido — nem por administrador. É uma
+          trilha permanente.
+        </div>
+      </div>
+    </section>
+
+    <!-- LIMITAÇÕES -->
+    <section class="module" id="limitacoes">
+      <h2>Limitações conhecidas</h2>
+      <p class="module-intro">O que ainda não existe — para não gerar chamado de suporte por engano.</p>
+
+      <div class="limits-grid">
+        <div class="limit-item">
+          <div class="label">Anexos</div>
+          <div class="desc"><b>Só link, sem upload de arquivo.</b> Suba o arquivo em outro lugar
+            (Drive, SharePoint) e cole a URL na atividade.</div>
+        </div>
+        <div class="limit-item">
+          <div class="label">Visibilidade</div>
+          <div class="desc"><b>Coordinator e technician só veem projetos onde foram associados
+            como membro.</b> Sem essa associação (feita por um gestor no card Equipe), o projeto
+            fica invisível para eles — não é um bug.</div>
+        </div>
+        <div class="limit-item">
+          <div class="label">Exportação de pauta</div>
+          <div class="desc"><b>Só PDF.</b> Não existe exportação em DOCX.</div>
+        </div>
+        <div class="limit-item">
+          <div class="label">Busca</div>
+          <div class="desc"><b>Cobre Projeto, Atividade e WIN.</b> Reuniões/pautas não aparecem na
+            busca global ainda — acesse pelo menu <b>Pautas</b>.</div>
+        </div>
+        <div class="limit-item">
+          <div class="label">Janela de prazo</div>
+          <div class="desc">O aviso de "prazo próximo" usa uma janela fixa de <b>3 dias</b> — ainda
+            não é configurável por gestor.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="module" id="faq">
+      <h2>Perguntas frequentes</h2>
+      <div class="faq">
+        <details>
+          <summary>Por que não consigo marcar minha atividade como Concluída?</summary>
+          <p>O progresso precisa estar em exatamente 100%. Atualize o campo de progresso na tabela
+            de Atividades antes de mudar o status.</p>
+        </details>
+        <details>
+          <summary>Por que o projeto que eu preciso acessar não aparece na minha lista?</summary>
+          <p>Se você é coordinator ou technician, alguém com permissão de gestor precisa te
+            associar no card <b>Equipe</b> daquele projeto primeiro (veja
+            <a href="#equipe">Equipe do projeto</a>).</p>
+        </details>
+        <details>
+          <summary>Por que não consigo mudar o status de uma atividade para "Em Andamento"?</summary>
+          <p>Ela provavelmente tem uma predecessora que ainda está "A Fazer". Verifique a
+            atividade predecessora e comece o trabalho nela primeiro.</p>
+        </details>
+        <details>
+          <summary>Consigo reabrir um projeto que encerrei por engano?</summary>
+          <p>Não pela tela — encerrar é uma ação definitiva. Fale com o administrador técnico do
+            sistema.</p>
+        </details>
+        <details>
+          <summary>Meu WIN some da tela depois de um tempo?</summary>
+          <p>Não. Ele continua existindo — a tela <b>Meus WINs</b> mostra a semana atual e, logo
+            abaixo, a retrospectiva da semana anterior. Semanas mais antigas não têm uma tela
+            dedicada ainda.</p>
+        </details>
+        <details>
+          <summary>A pauta gerada pela IA veio errada ou incompleta — o que eu faço?</summary>
+          <p>A caixa de texto da pauta é editável — corrija manualmente e clique em <b>Salvar
+            pauta</b>. Se preferir, clique em <b>Gerar pauta com IA</b> de novo pra tentar outra
+            versão (isso substitui a anterior).</p>
+        </details>
+        <details>
+          <summary>Por que não vejo o menu Relatórios ou o botão de gerar pauta?</summary>
+          <p>Relatórios e a geração de pauta são restritos a admin/director/coordinator.
+            Coordinator também precisa ser membro do projeto da reunião. Technician não vê essas
+            opções.</p>
+        </details>
+        <details>
+          <summary>A busca (⌘K) não encontra uma reunião/pauta que eu sei que existe</summary>
+          <p>A busca global ainda não indexa reuniões — acesse pelo menu lateral <b>Pautas</b> e
+            use os filtros de tipo/projeto/período da própria listagem.</p>
+        </details>
+      </div>
+    </section>
+
+    <footer class="doc-footer">
+      GiaFlow — manual cobre exatamente o que está em produção no momento da publicação. Telas
+      novas não documentadas aqui ainda não foram lançadas.
+    </footer>
+  </main>
+</div>
