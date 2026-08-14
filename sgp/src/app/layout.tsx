@@ -3,6 +3,7 @@ import { Inter, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import { Toaster } from "@/components/ui/sonner";
 import { PwaRegister } from "@/components/pwa-register";
+import { ThemeProvider } from "@/components/theme-provider";
 import "./globals.css";
 
 const inter = Inter({
@@ -26,7 +27,10 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0d0f12",
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f5f6f8" },
+    { media: "(prefers-color-scheme: dark)", color: "#0d0f12" },
+  ],
 };
 
 export default function RootLayout({
@@ -36,12 +40,20 @@ export default function RootLayout({
     <ClerkProvider>
       <html
         lang="pt-BR"
-        className={`${inter.variable} ${geistMono.variable} dark h-full antialiased`}
+        className={`${inter.variable} ${geistMono.variable} h-full antialiased`}
+        suppressHydrationWarning
       >
         <body className="min-h-full flex flex-col bg-background text-foreground">
-          {children}
-          <Toaster />
-          <PwaRegister />
+          <ThemeProvider
+            attribute="class"
+            defaultTheme="dark"
+            enableSystem
+            disableTransitionOnChange
+          >
+            {children}
+            <Toaster />
+            <PwaRegister />
+          </ThemeProvider>
         </body>
       </html>
     </ClerkProvider>

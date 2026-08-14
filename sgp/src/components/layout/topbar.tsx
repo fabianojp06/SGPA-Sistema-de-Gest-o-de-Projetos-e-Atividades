@@ -2,6 +2,7 @@ import { UserButton } from "@clerk/nextjs";
 import { getMyNotifications } from "@/actions/notifications";
 import { CommandPalette } from "@/components/layout/command-palette";
 import { NotificationBell } from "@/components/layout/notification-bell";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export async function Topbar() {
   const { notifications, unreadCount } = await getMyNotifications().catch(() => ({
@@ -14,6 +15,7 @@ export async function Topbar() {
       <CommandPalette />
 
       <div className="flex items-center gap-4">
+        <ThemeToggle />
         <NotificationBell initialNotifications={notifications} initialUnreadCount={unreadCount} />
         <UserButton />
       </div>
